@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
@@ -6,6 +8,15 @@ use serenity::{
 
 #[command]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "Pong!").await?;
+    let start = Instant::now();
+    let mut response = msg
+        .channel_id
+        .send_message(ctx, |m| m.content("Pinging..."))
+        .await?;
+    let elapsed = start.elapsed().as_millis();
+    response
+        .edit(ctx, |m| m.content(format!("{}ms", &elapsed)))
+        .await?;
+
     Ok(())
 }
