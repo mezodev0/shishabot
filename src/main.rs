@@ -1,4 +1,3 @@
-use osu_db::Replay;
 use serenity::{
     async_trait,
     framework::standard::{macros::group, StandardFramework},
@@ -14,7 +13,7 @@ use process_replays::*;
 
 struct ReplayHandler;
 impl TypeMapKey for ReplayHandler {
-    type Value = tokio::sync::mpsc::UnboundedSender<Replay>;
+    type Value = tokio::sync::mpsc::UnboundedSender<Data>;
 }
 
 struct Handler;
@@ -28,11 +27,11 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn message(&self, ctx: Context, mut msg: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         let data = ctx.data.read().await;
         let sender = data.get::<ReplayHandler>().unwrap();
 
-        match parse_attachment_replay(&msg.attachments, sender).await {
+        match parse_attachment_replay(&msg, sender).await {
             AttachmentParseResult::NoAttachmentOrReplay => {}
             AttachmentParseResult::BeingProcessed => {
                 if let Err(why) = msg
@@ -62,14 +61,19 @@ impl EventHandler for Handler {
 #[commands(ping)]
 struct General;
 
+#[group]
+#[commands(settings)]
+struct Danser;
+
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to read .env file");
     let token = env::var("DISCORD_TOKEN").expect("Expected a token from the env");
-
+    let cache_and_http = Arc::clone(&client.cache_and_http);
     let framework = StandardFramework::new()
         .configure(|c| c.with_whitespace(true).prefix("!!"))
         .group(&GENERAL_GROUP)
+        .group(&DANSER_GROUP)
         .help(&HELP);
 
     let mut client = Client::builder(&token)
@@ -78,8 +82,19 @@ async fn main() {
         .await
         .expect("Failed to create client");
 
+    let client_id: u64 = env::var("CLIENT_ID").parse().unwrap();
+    let client_secret: String = env::var("CLIENT_SECRET");
+
+    let osu: Osu = match Osu::new(client_id, client_secret).await {
+        Ok(client) => client,
+        Err(why) => panic!(
+            "Failed to create client or make initial osu!api interaction: {}",
+            why
+        ),
+    };
+
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    tokio::spawn(process_replay(receiver));
+    tokio::spawn(process_replay(receiver, osu, cache_and_http));
     {
         let mut data = client.data.write().await;
         data.insert::<ReplayHandler>(sender);
