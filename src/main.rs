@@ -1,10 +1,14 @@
+use rosu_v2::Osu;
 use serenity::{
     async_trait,
     framework::standard::{macros::group, StandardFramework},
     model::prelude::*,
     prelude::*,
 };
-use std::{env, fs};
+use std::{env, fs, sync::Arc};
+
+mod beatmap_downloader;
+
 mod commands;
 use commands::*;
 
@@ -69,7 +73,13 @@ struct Danser;
 async fn main() {
     dotenv::dotenv().expect("Failed to read .env file");
     let token = env::var("DISCORD_TOKEN").expect("Expected a token from the env");
-    let cache_and_http = Arc::clone(&client.cache_and_http);
+    let client_id: u64 = env::var("CLIENT_ID")
+        .expect("Expected client id from the env")
+        .parse()
+        .unwrap();
+    let client_secret: String =
+        env::var("CLIENT_SECRET").expect("Expected client secret from the env");
+
     let framework = StandardFramework::new()
         .configure(|c| c.with_whitespace(true).prefix("!!"))
         .group(&GENERAL_GROUP)
@@ -82,8 +92,7 @@ async fn main() {
         .await
         .expect("Failed to create client");
 
-    let client_id: u64 = env::var("CLIENT_ID").parse().unwrap();
-    let client_secret: String = env::var("CLIENT_SECRET");
+    let http = Arc::clone(&client.cache_and_http.http);
 
     let osu: Osu = match Osu::new(client_id, client_secret).await {
         Ok(client) => client,
@@ -94,7 +103,7 @@ async fn main() {
     };
 
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    tokio::spawn(process_replay(receiver, osu, cache_and_http));
+    tokio::spawn(process_replay(receiver, osu, http));
     {
         let mut data = client.data.write().await;
         data.insert::<ReplayHandler>(sender);

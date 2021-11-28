@@ -6,6 +6,7 @@ use serenity::{
 use tokio::fs;
 
 #[command]
+#[description = "Creates your very own settings file for you to customize!"]
 async fn settings(ctx: &Context, msg: &Message) -> CommandResult {
     let author = msg.author.id;
     if !path_exists(format!("../danser/settings/{}.json", author)).await {
