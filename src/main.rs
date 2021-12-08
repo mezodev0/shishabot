@@ -7,8 +7,6 @@ use serenity::{
 };
 use std::{env, fs, sync::Arc};
 
-mod beatmap_downloader;
-
 mod commands;
 use commands::*;
 
@@ -66,7 +64,7 @@ impl EventHandler for Handler {
 struct General;
 
 #[group]
-#[commands(settings)]
+#[commands(settings, skinlist)]
 struct Danser;
 
 #[tokio::main]

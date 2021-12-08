@@ -17,3 +17,5 @@ bytes = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 zip = { version = "0.5" }
 rosu-pp = "0.4.0"
+serde = { version = "1.0.104", features = ["derive"] }
+serde_json = "1.0.48"

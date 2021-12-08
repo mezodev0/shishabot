@@ -1,9 +1,8 @@
 use reqwest::multipart::Part;
-use rosu_pp::{Beatmap, BeatmapAttributes, BeatmapExt};
+use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods};
 use serde::Deserialize;
 use serenity::http::Http;
-use serenity::FutureExt;
 use std::env;
 use std::io::Cursor;
 use std::path::Path;
@@ -71,7 +70,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
 
         download_mapset(mapset_id).await;
 
-        let mut settings: String = "".to_string();
+        let settings;
 
         if path_exists(format!("../danser/settings/{}.json", replay_user)).await {
             settings = format!("{}", replay_user);
@@ -92,8 +91,6 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             .arg("-record")
             .arg(format!("-settings={}", settings))
             .arg("-quickstart")
-            .arg("-end=20")
-            .arg("-start=20")
             .arg(format!("-out={}", filename));
 
         let output = command.output().await.unwrap();
