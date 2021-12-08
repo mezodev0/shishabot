@@ -19,6 +19,8 @@ async fn settings(ctx: &Context, msg: &Message) -> CommandResult {
             println!("Failed to create settings file: {}", why);
         }
     }
+
+    let settings_path = format!("../danser/settings/{}.json", author);
     Ok(())
 }
 
