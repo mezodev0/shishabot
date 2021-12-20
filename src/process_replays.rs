@@ -107,7 +107,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
                 mapset_id,
                 get_beatmap_osu_file(mapset_id).await
             ),
-            &hash,
+            hash,
             &osu,
         )
         .await;
@@ -165,8 +165,8 @@ pub async fn parse_attachment_replay(
                 file.write_all(&bytes).await.expect("failed to write");
 
                 let replay_data = Data {
-                    path: String::from(format!("../Downloads/{}", &attachment.filename)),
-                    replay: replay,
+                    path: format!("../Downloads/{}", &attachment.filename),
+                    replay,
                     channel: msg.channel_id,
                     user: msg.author.id,
                 };
@@ -174,7 +174,8 @@ pub async fn parse_attachment_replay(
                 if let Err(why) = sender.send(replay_data) {
                     println!("failed to send: {}", why);
                 }
-                return AttachmentParseResult::BeingProcessed;
+
+                AttachmentParseResult::BeingProcessed
             }
             Err(why) => AttachmentParseResult::FailedParsing(why),
         },
@@ -213,7 +214,7 @@ pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part, tokio::io::Error> {
     let path = path.as_ref();
     let file_name = path
         .file_name()
-        .and_then(|filename| Some(filename.to_string_lossy().into_owned()));
+        .map(|filename| filename.to_string_lossy().into_owned());
     let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
     let mime = mime_guess::from_ext(ext).first_or_octet_stream();
     let mut file = File::open(path).await?;
@@ -237,7 +238,7 @@ async fn download_mapset(mapset_id: u32) {
     archive.extract(out_path).unwrap();
 }
 
-async fn create_title(replay: &Replay, map_path: String, hash: &String, osu: &Osu) -> String {
+async fn create_title(replay: &Replay, map_path: String, hash: &str, osu: &Osu) -> String {
     let beatmap = match Beatmap::from_path(&map_path) {
         Ok(map) => map,
         Err(why) => panic!("Error while parsing map: {}, path: {}", why, &map_path),
@@ -260,14 +261,14 @@ async fn create_title(replay: &Replay, map_path: String, hash: &String, osu: &Os
 
     let map_title = &map_info.title;
 
-    let acc = accuracy(&replay, GameMode::STD);
+    let acc = accuracy(replay, GameMode::STD);
 
     let title = format!(
         "[{}⭐] {} | {} +{} {}%",
         stars, player, map_title, mods_str, acc
     );
 
-    return title;
+    title
 }
 
 async fn get_beatmap_osu_file(mapset_id: u32) -> String {
@@ -305,7 +306,8 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> String {
         "FINAL TITLE: {} SIMILARITY: {}",
         &final_file_name, &similarity
     );
-    return final_file_name;
+
+    final_file_name
 }
 
 pub fn levenshtein_similarity(word_a: &str, word_b: &str) -> f32 {
@@ -402,5 +404,5 @@ fn total_hits(replay: &Replay, mode: GameMode) -> u32 {
         }
     }
 
-    amount.into()
+    amount
 }
