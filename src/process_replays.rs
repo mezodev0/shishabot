@@ -1,26 +1,27 @@
-use reqwest::multipart::Part;
-use rosu_pp::{Beatmap, BeatmapExt};
-use rosu_v2::prelude::{GameMode, GameMods};
-use serde::Deserialize;
-use serenity::http::Http;
-use std::env;
-use std::io::Cursor;
-use std::path::Path;
-use std::sync::Arc;
-use tokio::process::Command;
-use zip::ZipArchive;
-
 use osu_db::Replay;
-use reqwest::{multipart, Client, Error};
-use rosu_v2::Osu;
-use serenity::model::channel::Message;
-use serenity::model::id::{ChannelId, UserId};
-use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::{
-    fs::File,
-    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+use reqwest::{
+    multipart::{Form, Part},
+    Client, Error,
 };
+use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_v2::prelude::{Beatmapset, GameMode, GameMods, Osu};
+use serde::Deserialize;
+use serenity::{
+    http::Http,
+    model::{
+        channel::Message,
+        id::{ChannelId, UserId},
+    },
+};
+use std::{env, io::Cursor, mem, path::Path, sync::Arc, time::Duration};
+use tokio::{
+    fs::{self, File},
+    io::{AsyncReadExt, AsyncWriteExt},
+    process::Command,
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    time,
+};
+use zip::ZipArchive;
 
 #[derive(Deserialize)]
 pub struct UploadResponse {
@@ -43,39 +44,34 @@ pub struct Data {
 }
 
 pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, http: Arc<Http>) {
-    loop {
-        let replay_data = receiver.recv().await.unwrap();
-
+    while let Some(replay_data) = receiver.recv().await {
         let replay_path = replay_data.path;
         let replay_file = replay_data.replay;
         let replay_user = replay_data.user;
         let replay_channel = replay_data.channel;
 
-        let hash = match &replay_file.beatmap_hash {
-            Some(h) => h,
+        let mapset = match replay_file.beatmap_hash.as_deref() {
+            Some(hash) => match osu.beatmap().checksum(hash).await {
+                Ok(map) => map.mapset.unwrap(),
+                Err(why) => {
+                    println!("failed to request map with hash {}: {}", hash, why);
+                    continue;
+                }
+            },
             None => {
                 println!("no hash in replay requested by user {}", replay_user);
                 continue;
             }
         };
 
-        let beatmap_info = osu.beatmap().checksum(&*hash).await;
-        let mapset_id = match &beatmap_info {
-            Ok(map) => map.mapset_id,
-            Err(why) => {
-                println!("failed to request map with hash {}: {}", &hash, why);
-                continue;
-            }
-        };
+        let mapset_id = mapset.mapset_id;
 
         download_mapset(mapset_id).await;
 
-        let settings;
-
-        if path_exists(format!("../danser/settings/{}.json", replay_user)).await {
-            settings = format!("{}", replay_user);
+        let settings = if path_exists(format!("../danser/settings/{}.json", replay_user)).await {
+            format!("{}", replay_user)
         } else {
-            settings = "default".to_string();
+            "default".to_string()
         };
 
         let filename = replay_path
@@ -100,35 +96,29 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         println!("stdout: {}", stdout);
         println!("stderr: {}", stderr);
 
-        let streamable_title = create_title(
-            &replay_file,
-            format!(
-                "../Songs/{}/{}",
-                mapset_id,
-                get_beatmap_osu_file(mapset_id).await
-            ),
-            hash,
-            &osu,
-        )
-        .await;
+        let map_path = format!(
+            "../Songs/{}/{}",
+            mapset_id,
+            get_beatmap_osu_file(mapset_id).await
+        );
+
+        let streamable_title = create_title(&replay_file, map_path, &mapset).await;
 
         let shortcode: UploadResponse =
             match upload(format!("../Replays/{}.mp4", filename), streamable_title).await {
                 Ok(json) => json,
-                Err(why) => {
-                    panic!("failed to upload file: {}", why);
-                }
+                Err(why) => panic!("failed to upload file: {}", why),
             };
 
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        time::sleep(Duration::from_secs(5)).await;
+
+        let content = format!(
+            "<@{}> your replay is ready! https://streamable.com/{}",
+            replay_user, shortcode.shortcode
+        );
 
         if let Err(why) = replay_channel
-            .send_message(&http, |m| {
-                m.content(format!(
-                    "<@{}> your replay is ready! https://streamable.com/{}",
-                    replay_user, shortcode.shortcode
-                ))
-            })
+            .send_message(&http, |m| m.content(content))
             .await
         {
             println!("couldnt send streamable link: {}", why);
@@ -141,18 +131,9 @@ pub async fn parse_attachment_replay(
     sender: &UnboundedSender<Data>,
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
-        Some(a) => a,
-        None => return AttachmentParseResult::NoAttachmentOrReplay,
+        Some(a) if matches!(a.filename.split('.').last(), Some("osr")) => a,
+        Some(_) | None => return AttachmentParseResult::NoAttachmentOrReplay,
     };
-
-    let file_type = match attachment.filename.split('.').last() {
-        Some(a) => a,
-        None => return AttachmentParseResult::NoAttachmentOrReplay,
-    };
-
-    if file_type != "osr" {
-        return AttachmentParseResult::NoAttachmentOrReplay;
-    }
 
     match attachment.download().await {
         // parse the data as replay
@@ -189,7 +170,7 @@ pub async fn upload(filepath: String, title: String) -> Result<UploadResponse, E
 
     let endpoint = "https://api.streamable.com/upload";
 
-    let form = multipart::Form::new()
+    let form = Form::new()
         .part("file", file(filepath).await.unwrap())
         .text("title", title);
 
@@ -238,29 +219,18 @@ async fn download_mapset(mapset_id: u32) {
     archive.extract(out_path).unwrap();
 }
 
-async fn create_title(replay: &Replay, map_path: String, hash: &str, osu: &Osu) -> String {
-    let beatmap = match Beatmap::from_path(&map_path) {
-        Ok(map) => map,
-        Err(why) => panic!("Error while parsing map: {}, path: {}", why, &map_path),
+async fn create_title(replay: &Replay, map_path: String, mapset: &Beatmapset) -> String {
+    let mods = replay.mods.bits();
+
+    let difficulty = match Beatmap::from_path(&map_path) {
+        Ok(map) => map.stars(mods, None),
+        Err(why) => panic!("Error while parsing map: {}, path: {}", why, map_path),
     };
 
-    let mods = replay.mods;
-    let mods_str = GameMods::from_bits(replay.mods.bits()).unwrap().to_string();
-
-    let stars = (beatmap.stars(mods.bits(), None).stars() * 100.0).round() / 100.0;
-
-    let player = &replay.player_name.as_ref().unwrap();
-
-    let beatmap_hash = osu.beatmap().checksum(&*hash).await;
-    let map_info = match &beatmap_hash {
-        Ok(map) => map.mapset.as_ref().unwrap(),
-        Err(why) => {
-            panic!("failed to request map with hash {}: {}", &hash, why);
-        }
-    };
-
-    let map_title = &map_info.title;
-
+    let mods_str = GameMods::from_bits(mods).unwrap().to_string();
+    let stars = (difficulty.stars() * 100.0).round() / 100.0;
+    let player = replay.player_name.as_ref().unwrap();
+    let map_title = &mapset.title;
     let acc = accuracy(replay, GameMode::STD);
 
     let title = format!(
@@ -283,28 +253,26 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> String {
 
     let items = std::fs::read_dir(format!("../Songs/{}", mapset_id)).unwrap();
 
-    let mut similarity: f32 = 0.0;
-
-    let mut final_file_name: String = String::from("");
-    let mut item_file_name: String;
+    let mut max_similarity: f32 = 0.0;
+    let mut final_file_name = String::new();
 
     for item in items {
-        let unwrapped_item = item.unwrap();
-        item_file_name = unwrapped_item.file_name().to_str().unwrap().to_string();
+        let file_name = item.unwrap().file_name();
+        let item_file_name = file_name.to_string_lossy();
 
-        println!(
-            "COMPARING: {} WITH: {}",
-            &map_without_artist, &item_file_name
-        );
-        if levenshtein_similarity(&map_without_artist, &item_file_name) > similarity {
-            similarity = levenshtein_similarity(&map_without_artist, &item_file_name);
-            final_file_name = item_file_name;
+        println!("COMPARING: {} WITH: {}", map_without_artist, item_file_name);
+
+        let similarity = levenshtein_similarity(&map_without_artist, &item_file_name);
+
+        if similarity > max_similarity {
+            max_similarity = similarity;
+            final_file_name = item_file_name.into_owned();
         }
     }
 
     println!(
         "FINAL TITLE: {} SIMILARITY: {}",
-        &final_file_name, &similarity
+        final_file_name, max_similarity
     );
 
     final_file_name
@@ -333,8 +301,8 @@ fn levenshtein_distance<'w>(mut word_a: &'w str, mut word_b: &'w str) -> (usize,
     let mut n = word_b.chars().count();
 
     if m > n {
-        std::mem::swap(&mut word_a, &mut word_b);
-        std::mem::swap(&mut m, &mut n);
+        mem::swap(&mut word_a, &mut word_b);
+        mem::swap(&mut m, &mut n);
     }
 
     // u16 is sufficient considering the max length
@@ -393,7 +361,7 @@ fn accuracy(replay: &Replay, mode: GameMode) -> f32 {
 }
 
 fn total_hits(replay: &Replay, mode: GameMode) -> u32 {
-    let mut amount: u32 = (replay.count_300 + replay.count_100 + replay.count_miss).into();
+    let mut amount = (replay.count_300 + replay.count_100 + replay.count_miss) as u32;
 
     if mode != GameMode::TKO {
         amount += replay.count_50 as u32;

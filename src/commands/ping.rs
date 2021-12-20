@@ -14,9 +14,8 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
         .send_message(ctx, |m| m.content("Pinging..."))
         .await?;
     let elapsed = start.elapsed().as_millis();
-    response
-        .edit(ctx, |m| m.content(format!("{}ms", &elapsed)))
-        .await?;
+    let content = format!("{}ms", &elapsed);
+    response.edit(ctx, |m| m.content(content)).await?;
 
     Ok(())
 }

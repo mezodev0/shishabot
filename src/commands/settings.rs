@@ -12,19 +12,17 @@ use tokio::{
 #[description = "Creates your very own settings file for you to customize!"]
 async fn settings(ctx: &Context, msg: &Message) -> CommandResult {
     let author = msg.author.id;
+    let from = "../danser/settings/default.json";
+    let to = format!("../danser/settings/{}.json", author);
+
     if !path_exists(format!("../danser/settings/{}.json", author)).await {
-        if let Err(why) = fs::copy(
-            "../danser/settings/default.json",
-            format!("../danser/settings/{}.json", author),
-        )
-        .await
-        {
+        if let Err(why) = fs::copy(from, to).await {
             println!("Failed to create settings file: {}", why);
         }
     }
 
     let settings_path = format!("../danser/settings/{}.json", author);
-    let mut settings_file = File::open(settings_path).await.unwrap();
+    let mut settings_file = File::open(settings_path).await?;
     let mut content = String::new();
     settings_file.read_to_string(&mut content).await?;
 
@@ -39,6 +37,7 @@ async fn settings(ctx: &Context, msg: &Message) -> CommandResult {
             })
         })
         .await?;
+
     Ok(())
 }
 

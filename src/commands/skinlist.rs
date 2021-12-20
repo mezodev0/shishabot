@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
@@ -9,21 +11,20 @@ use tokio::fs;
 #[description = "Displays all skins available"]
 async fn skinlist(ctx: &Context, msg: &Message) -> CommandResult {
     let mut skins = fs::read_dir("../Skins/").await?;
-    let mut counter: i32 = 0;
-    let mut skinlist: String = String::from("");
+    let mut counter = 0;
+    let mut skinlist = String::new();
 
-    while let Some(skin) = skins.next_entry().await.unwrap() {
+    while let Some(skin) = skins.next_entry().await? {
         counter += 1;
-        skinlist.push_str(&format!(
-            "{}) {}\n",
-            counter,
-            skin.file_name().into_string().unwrap()
-        ));
+        let file_name = skin.file_name();
+        let _ = writeln!(skinlist, "{}) {}", counter, file_name.to_string_lossy());
     }
+
     msg.channel_id
         .send_message(ctx, |m| {
             m.embed(|e| e.title("Skinlist").description(skinlist))
         })
         .await?;
+
     Ok(())
 }

@@ -23,8 +23,8 @@ struct Handler;
 impl EventHandler for Handler {
     async fn ready(&self, _: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
-        let result = create_missing_folders().await;
-        if result.is_ok() {
+
+        if create_missing_folders().await.is_ok() {
             println!("created folders");
         }
     }
@@ -36,10 +36,9 @@ impl EventHandler for Handler {
         match parse_attachment_replay(&msg, sender).await {
             AttachmentParseResult::NoAttachmentOrReplay => {}
             AttachmentParseResult::BeingProcessed => {
-                if let Err(why) = msg
-                    .react(&ctx, ReactionType::Unicode("✅".to_string()))
-                    .await
-                {
+                let reaction = ReactionType::Unicode("✅".to_string());
+
+                if let Err(why) = msg.react(&ctx, reaction).await {
                     println!("failed to reply: {}", why);
                 }
             }
