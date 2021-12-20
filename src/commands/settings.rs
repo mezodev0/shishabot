@@ -17,7 +17,7 @@ async fn settings(ctx: &Context, msg: &Message) -> CommandResult {
 
     if !path_exists(format!("../danser/settings/{}.json", author)).await {
         if let Err(why) = fs::copy(from, to).await {
-            println!("Failed to create settings file: {}", why);
+            warn!("Failed to create settings file: {}", why);
         }
     }
 

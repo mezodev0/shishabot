@@ -54,12 +54,12 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             Some(hash) => match osu.beatmap().checksum(hash).await {
                 Ok(map) => map.mapset.unwrap(),
                 Err(why) => {
-                    println!("failed to request map with hash {}: {}", hash, why);
+                    warn!("failed to request map with hash {}: {}", hash, why);
                     continue;
                 }
             },
             None => {
-                println!("no hash in replay requested by user {}", replay_user);
+                warn!("no hash in replay requested by user {}", replay_user);
                 continue;
             }
         };
@@ -93,8 +93,8 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         let stdout = std::str::from_utf8(&output.stdout).unwrap();
         let stderr = std::str::from_utf8(&output.stderr).unwrap();
 
-        println!("stdout: {}", stdout);
-        println!("stderr: {}", stderr);
+        debug!("stdout: {}", stdout);
+        debug!("stderr: {}", stderr);
 
         let map_path = format!(
             "../Songs/{}/{}",
@@ -121,7 +121,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             .send_message(&http, |m| m.content(content))
             .await
         {
-            println!("couldnt send streamable link: {}", why);
+            warn!("couldnt send streamable link: {}", why);
         }
     }
 }
@@ -153,7 +153,7 @@ pub async fn parse_attachment_replay(
                 };
 
                 if let Err(why) = sender.send(replay_data) {
-                    println!("failed to send: {}", why);
+                    warn!("failed to send: {}", why);
                 }
 
                 AttachmentParseResult::BeingProcessed
@@ -260,7 +260,7 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> String {
         let file_name = item.unwrap().file_name();
         let item_file_name = file_name.to_string_lossy();
 
-        println!("COMPARING: {} WITH: {}", map_without_artist, item_file_name);
+        debug!("COMPARING: {} WITH: {}", map_without_artist, item_file_name);
 
         let similarity = levenshtein_similarity(&map_without_artist, &item_file_name);
 
@@ -270,7 +270,7 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> String {
         }
     }
 
-    println!(
+    debug!(
         "FINAL TITLE: {} SIMILARITY: {}",
         final_file_name, max_similarity
     );

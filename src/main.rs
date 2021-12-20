@@ -1,7 +1,16 @@
+#[macro_use]
+extern crate lazy_static;
+
+#[macro_use]
+extern crate log;
+
 use rosu_v2::Osu;
 use serenity::{
     async_trait,
-    framework::standard::{macros::group, StandardFramework},
+    framework::standard::{
+        macros::{group, hook},
+        CommandResult, StandardFramework,
+    },
     model::prelude::*,
     prelude::*,
 };
@@ -13,6 +22,8 @@ use commands::*;
 mod process_replays;
 use process_replays::*;
 
+mod logging;
+
 struct ReplayHandler;
 impl TypeMapKey for ReplayHandler {
     type Value = tokio::sync::mpsc::UnboundedSender<Data>;
@@ -22,10 +33,10 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, _: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
+        info!("{} is connected!", ready.user.name);
 
         if create_missing_folders().await.is_ok() {
-            println!("created folders");
+            info!("created folders");
         }
     }
 
@@ -39,19 +50,19 @@ impl EventHandler for Handler {
                 let reaction = ReactionType::Unicode("✅".to_string());
 
                 if let Err(why) = msg.react(&ctx, reaction).await {
-                    println!("failed to reply: {}", why);
+                    warn!("failed to reply: {}", why);
                 }
             }
             AttachmentParseResult::FailedDownload(err) => {
-                println!("download failed: {}", err);
+                warn!("download failed: {}", err);
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
-                    println!("failed to reply: {}", why);
+                    warn!("failed to reply: {}", why);
                 }
             }
             AttachmentParseResult::FailedParsing(err) => {
-                println!("parsing failed: {}", err);
+                warn!("parsing failed: {}", err);
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
-                    println!("failed to reply: {}", why);
+                    warn!("failed to reply: {}", why);
                 }
             }
         }
@@ -69,6 +80,8 @@ struct Danser;
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to read .env file");
+    logging::initialize().expect("Failed to initialize logging");
+
     let token = env::var("DISCORD_TOKEN").expect("Expected a token from the env");
     let client_id: u64 = env::var("CLIENT_ID")
         .expect("Expected client id from the env")
@@ -79,6 +92,8 @@ async fn main() {
 
     let framework = StandardFramework::new()
         .configure(|c| c.with_whitespace(true).prefix("!!"))
+        .before(log_command)
+        .after(finished_command)
         .group(&GENERAL_GROUP)
         .group(&DANSER_GROUP)
         .help(&HELP);
@@ -107,7 +122,7 @@ async fn main() {
     }
 
     if let Err(why) = client.start().await {
-        println!("Client Error: {:?}", why);
+        error!("Client Error: {:?}", why);
     }
 }
 
@@ -116,4 +131,19 @@ async fn create_missing_folders() -> std::io::Result<()> {
     fs::create_dir_all("../Skins")?;
     fs::create_dir_all("../Downloads")?;
     Ok(())
+}
+
+#[hook]
+async fn log_command(_: &Context, msg: &Message, cmd_name: &str) -> bool {
+    info!("Got command '{}' by user '{}'", cmd_name, msg.author.name);
+
+    true
+}
+
+#[hook]
+async fn finished_command(_: &Context, _: &Message, cmd_name: &str, cmd_result: CommandResult) {
+    match cmd_result {
+        Ok(()) => info!("Processed command '{}'", cmd_name),
+        Err(why) => warn!("Command '{}' returned error {:?}", cmd_name, why),
+    }
 }
