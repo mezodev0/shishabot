@@ -9,3 +9,6 @@ pub use help::*;
 
 mod skinlist;
 pub use skinlist::*;
+
+mod settings_struct;
+pub use settings_struct::*;

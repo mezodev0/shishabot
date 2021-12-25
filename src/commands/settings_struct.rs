@@ -1,93 +1,99 @@
-#[derive(Deserialize)]
-struct Settings {
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug)]
+pub struct Settings {
     #[serde(rename = "Skin")]
-    skin: Skin,
+    pub skin: Skin,
     #[serde(rename = "Gameplay")]
-    gameplay: Gameplay,
+    pub gameplay: Gameplay,
     #[serde(rename = "Cursor")]
-    cursor: Cursor,
+    pub cursor: Cursor,
     #[serde(rename = "Playfield")]
-    playfield: Playfield,
+    pub playfield: Playfield,
+    #[serde(rename = "Audio")]
+    pub audio: Audio,
 }
 
-#[derive(Deserialize)]
-struct Skin {
+#[derive(Deserialize, Debug)]
+pub struct Skin {
     #[serde(rename = "CurrentSkin")]
-    currentSkin: CurrentSkin,
+    pub currentSkin: String,
     #[serde(rename = "Cursor")]
-    cursor: SkinCursor,
+    pub cursor: SkinCursor,
 }
 
-#[derive(Deserialize)]
-struct CurrentSkin {
-    #[serde(rename = "CurrentSkin")]
-    currentSkin: String,
-}
-
-#[derive(Deserialize)]
-struct SkinCursor {
+#[derive(Deserialize, Debug)]
+pub struct SkinCursor {
     #[serde(rename = "Scale")]
-    scale: f64,
+    pub scale: f64,
 }
 
-#[derive(Deserialize)]
-struct Gameplay {
+#[derive(Deserialize, Debug)]
+pub struct Gameplay {
     #[serde(rename = "HitErrorMeter")]
-    hitErrorMeter: HitErrorMeter,
+    pub hitErrorMeter: HitErrorMeter,
     #[serde(rename = "AimErrorMeter")]
-    aimErrorMeter: AimErrorMeter,
+    pub aimErrorMeter: AimErrorMeter,
     #[serde(rename = "PPCounter")]
-    ppCounter: PPCounter,
+    pub ppCounter: PPCounter,
 }
 
-#[derive(Deserialize)]
-struct HitErrorMeter {
+#[derive(Deserialize, Debug)]
+pub struct HitErrorMeter {
     #[serde(rename = "Show")]
-    show: bool,
+    pub show: bool,
     #[serde(rename = "UnstableRateDecimals")]
-    unstableRateDecimals: u64,
+    pub unstableRateDecimals: u64,
 }
 
-#[derive(Deserialize)]
-struct AimErrorMeter {
+#[derive(Deserialize, Debug)]
+pub struct AimErrorMeter {
     #[serde(rename = "Show")]
-    show: bool,
+    pub show: bool,
     #[serde(rename = "UnstableRateDecimals")]
-    unstableRateDecimals: u64,
+    pub unstableRateDecimals: u64,
 }
 
-#[derive(Deserialize)]
-struct PPCounter {
+#[derive(Deserialize, Debug)]
+pub struct PPCounter {
     #[serde(rename = "Show")]
-    show: bool,
+    pub show: bool,
     #[serde(rename = "Decimals")]
-    decimals: u64,
+    pub decimals: u64,
 }
 
-#[derive(Deserialize)]
-struct Cursor {
+#[derive(Deserialize, Debug)]
+pub struct Cursor {
     #[serde(rename = "CursorRipples")]
-    cursorRipples: bool,
+    pub cursorRipples: bool,
 }
 
-#[derive(Deserialize)]
-struct Playfield {
+#[derive(Deserialize, Debug)]
+pub struct Playfield {
     #[serde(rename = "Background")]
-    background: Background,
+    pub background: Background,
 }
 
-#[derive(Deserialize)]
-struct Background {
+#[derive(Deserialize, Debug)]
+pub struct Background {
     #[serde(rename = "LoadStoryboards")]
-    loadStoryboards: bool,
+    pub loadStoryboards: bool,
     #[serde(rename = "LoadVideos")]
-    loadVideos: bool,
+    pub loadVideos: bool,
     #[serde(rename = "Dim")]
-    dim: Dim,
+    pub dim: Dim,
 }
 
-#[derive(Deserialize)]
-struct Dim {
+#[derive(Deserialize, Debug)]
+pub struct Dim {
     #[serde(rename = "Normal")]
-    normal: f64,
+    pub normal: f64,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Audio {
+    #[serde(rename = "MusicVolume")]
+    pub musicVolume: f64,
+    #[serde(rename = "SampleVolume")]
+    pub sampleVolume: f64,
 }
