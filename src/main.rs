@@ -32,9 +32,10 @@ impl TypeMapKey for ReplayHandler {
 struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
-
+        ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
+            .await;
         if create_missing_folders().await.is_ok() {
             info!("created folders");
         }
@@ -47,6 +48,8 @@ impl EventHandler for Handler {
         match parse_attachment_replay(&msg, sender).await {
             AttachmentParseResult::NoAttachmentOrReplay => {}
             AttachmentParseResult::BeingProcessed => {
+                ctx.set_activity(Activity::watching("!!help - Processing replay file"))
+                    .await;
                 let reaction = ReactionType::Unicode("✅".to_string());
 
                 if let Err(why) = msg.react(&ctx, reaction).await {
@@ -55,12 +58,16 @@ impl EventHandler for Handler {
             }
             AttachmentParseResult::FailedDownload(err) => {
                 warn!("download failed: {}", err);
+                ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
+                    .await;
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
                     warn!("failed to reply: {}", why);
                 }
             }
             AttachmentParseResult::FailedParsing(err) => {
                 warn!("parsing failed: {}", err);
+                ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
+                    .await;
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
                     warn!("failed to reply: {}", why);
                 }
