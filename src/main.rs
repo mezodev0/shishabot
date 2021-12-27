@@ -51,7 +51,7 @@ impl EventHandler for Handler {
                 output_channel: "".to_string(),
             };
 
-            let settings_file = tokio::fs::read_to_string("server_settings.json")
+            let settings_file = tokio::fs::read_to_string("src/server_settings.json")
                 .await
                 .unwrap();
             let mut existing_settings: server_settings_struct::Root =
@@ -60,7 +60,7 @@ impl EventHandler for Handler {
             existing_settings.servers.push(new_setting);
 
             let final_file = serde_json::to_string(&existing_settings).unwrap();
-            if let Err(why) = tokio::fs::write("server_settings.json", final_file).await {
+            if let Err(why) = tokio::fs::write("src/server_settings.json", final_file).await {
                 warn!("Failed to create server specific settings: {}", why);
             }
         }
@@ -106,7 +106,7 @@ impl EventHandler for Handler {
 struct General;
 
 #[group]
-#[commands(settings, skinlist)]
+#[commands(settings, skinlist, setup)]
 struct Danser;
 
 #[tokio::main]
