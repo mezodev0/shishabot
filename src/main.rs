@@ -43,26 +43,24 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn guild_role_create(&self, _ctx: Context, guild_id: GuildId, new: Role) {
-        if new.name == "danser thing" {
-            let new_setting: Server = Server {
-                server_id: guild_id.to_string(),
-                replay_channel: "".to_string(),
-                output_channel: "".to_string(),
-            };
+    async fn guild_create(&self, _ctx: Context, guild: Guild, _is_new: bool) {
+        let new_setting: Server = Server {
+            server_id: guild.id.to_string(),
+            replay_channel: "".to_string(),
+            output_channel: "".to_string(),
+        };
 
-            let settings_file = tokio::fs::read_to_string("src/server_settings.json")
-                .await
-                .unwrap();
-            let mut existing_settings: server_settings_struct::Root =
-                serde_json::from_str(&settings_file).unwrap();
+        let settings_file = tokio::fs::read_to_string("src/server_settings.json")
+            .await
+            .unwrap();
+        let mut existing_settings: server_settings_struct::Root =
+            serde_json::from_str(&settings_file).unwrap();
 
-            existing_settings.servers.push(new_setting);
+        existing_settings.servers.push(new_setting);
 
-            let final_file = serde_json::to_string(&existing_settings).unwrap();
-            if let Err(why) = tokio::fs::write("src/server_settings.json", final_file).await {
-                warn!("Failed to create server specific settings: {}", why);
-            }
+        let final_file = serde_json::to_string(&existing_settings).unwrap();
+        if let Err(why) = tokio::fs::write("src/server_settings.json", final_file).await {
+            warn!("Failed to create server specific settings: {}", why);
         }
     }
 
