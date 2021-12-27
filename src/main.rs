@@ -14,7 +14,13 @@ use serenity::{
     model::prelude::*,
     prelude::*,
 };
-use std::{env, fs, sync::Arc};
+use std::{
+    env,
+    fs::{self, File},
+    io::Write,
+    path::Path,
+    sync::Arc,
+};
 
 mod commands;
 use commands::*;
@@ -38,8 +44,8 @@ impl EventHandler for Handler {
         info!("{} is connected!", ready.user.name);
         ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
             .await;
-        if create_missing_folders().await.is_ok() {
-            info!("created folders");
+        if create_missing_folders_and_files().await.is_ok() {
+            info!("created folders and files");
         }
     }
 
@@ -70,29 +76,22 @@ impl EventHandler for Handler {
         let data = ctx.data.read().await;
         let sender = data.get::<ReplayHandler>().unwrap();
 
-        match parse_attachment_replay(&msg, sender).await {
+        match parse_attachment_replay(&msg, sender, ctx.shard.clone()).await {
             AttachmentParseResult::NoAttachmentOrReplay => {}
             AttachmentParseResult::BeingProcessed => {
-                ctx.set_activity(Activity::watching("!!help - Processing replay file"))
-                    .await;
                 let reaction = ReactionType::Unicode("✅".to_string());
-
                 if let Err(why) = msg.react(&ctx, reaction).await {
                     warn!("failed to reply: {}", why);
                 }
             }
             AttachmentParseResult::FailedDownload(err) => {
                 warn!("download failed: {}", err);
-                ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
-                    .await;
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
                     warn!("failed to reply: {}", why);
                 }
             }
             AttachmentParseResult::FailedParsing(err) => {
                 warn!("parsing failed: {}", err);
-                ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
-                    .await;
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
                     warn!("failed to reply: {}", why);
                 }
@@ -158,10 +157,14 @@ async fn main() {
     }
 }
 
-async fn create_missing_folders() -> std::io::Result<()> {
+async fn create_missing_folders_and_files() -> std::io::Result<()> {
     fs::create_dir_all("../Songs")?;
     fs::create_dir_all("../Skins")?;
     fs::create_dir_all("../Downloads")?;
+    if !Path::new("src/server_settings.json").exists() {
+        let mut file = File::create("src/server_settings.json")?;
+        file.write_all(b"{\"Servers\":[]}")?;
+    }
     Ok(())
 }
 

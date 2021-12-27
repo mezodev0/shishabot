@@ -7,10 +7,12 @@ use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{Beatmapset, GameMode, GameMods, Osu};
 use serde::Deserialize;
 use serenity::{
+    client::bridge::gateway::ShardMessenger,
     http::Http,
     model::{
         channel::Message,
         id::{ChannelId, UserId},
+        prelude::Activity,
     },
 };
 use std::{env, error::Error, io::Cursor, mem, path::Path, sync::Arc, time::Duration};
@@ -41,6 +43,7 @@ pub struct Data {
     replay: Replay,
     channel: ChannelId,
     user: UserId,
+    shard: ShardMessenger,
 }
 
 pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, http: Arc<Http>) {
@@ -49,6 +52,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         let replay_file = replay_data.replay;
         let replay_user = replay_data.user;
         let replay_channel = replay_data.channel;
+        let shard = replay_data.shard;
 
         let mapset = match replay_file.beatmap_hash.as_deref() {
             Some(hash) => match osu.beatmap().checksum(hash).await {
@@ -64,12 +68,15 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             }
         };
 
-        let mapset_id = mapset.mapset_id;
+        shard.set_activity(Some(Activity::watching("!!help - Downloading replay")));
 
+        let mapset_id = mapset.mapset_id;
+        info!("Started map download");
         if let Err(why) = download_mapset(mapset_id).await {
             warn!("Failed to download mapset: {}", why);
             continue;
         }
+        info!("Finished map download");
 
         let settings = if path_exists(format!("../danser/settings/{}.json", replay_user)).await {
             format!("{}", replay_user)
@@ -92,6 +99,9 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
 
+        shard.set_activity(Some(Activity::watching("!!help - Parsing replay")));
+
+        info!("Started replay parsing");
         match command.output().await {
             Ok(output) => {
                 if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
@@ -107,6 +117,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
                 continue;
             }
         }
+        info!("Finished replay parsing");
 
         let map_osu_file = match get_beatmap_osu_file(mapset_id).await {
             Ok(osu_file) => osu_file,
@@ -127,6 +138,11 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             }
         };
 
+        shard.set_activity(Some(Activity::watching(
+            "!!help - Uploading replay to streamable",
+        )));
+
+        info!("Started upload to streamable");
         let shortcode = match upload(filepath, streamable_title).await {
             Ok(response) => response,
             Err(why) => {
@@ -134,8 +150,8 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
                 continue;
             }
         };
-
         time::sleep(Duration::from_secs(5)).await;
+        info!("Finished upload to streamable");
 
         let content = format!(
             "<@{}> your replay is ready! https://streamable.com/{}",
@@ -143,6 +159,8 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         );
 
         let msg_fut = replay_channel.send_message(&http, |m| m.content(content));
+
+        shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
         if let Err(why) = msg_fut.await {
             warn!("Couldnt send streamable link: {}", why);
@@ -153,6 +171,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
 pub async fn parse_attachment_replay(
     msg: &Message,
     sender: &UnboundedSender<Data>,
+    shard_messenger: ShardMessenger,
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
         Some(a) if matches!(a.filename.split('.').last(), Some("osr")) => a,
@@ -174,6 +193,7 @@ pub async fn parse_attachment_replay(
                     replay,
                     channel: msg.channel_id,
                     user: msg.author.id,
+                    shard: shard_messenger,
                 };
 
                 if let Err(why) = sender.send(replay_data) {

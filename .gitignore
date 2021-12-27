@@ -11,3 +11,6 @@ Cargo.lock
 
 .env
 /logs
+
+# Server specific settings
+src/server_settings.json
