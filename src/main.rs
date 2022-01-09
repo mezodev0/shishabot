@@ -160,6 +160,7 @@ async fn main() {
 async fn create_missing_folders_and_files() -> std::io::Result<()> {
     fs::create_dir_all("../Songs")?;
     fs::create_dir_all("../Skins")?;
+    fs::create_dir_all("../Replays")?;
     fs::create_dir_all("../Downloads")?;
     if !Path::new("src/server_settings.json").exists() {
         let mut file = File::create("src/server_settings.json")?;
