@@ -262,7 +262,13 @@ async fn download_mapset(mapset_id: u32) -> Result<(), Box<dyn Error>> {
     let cursor = Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor)?;
     let out_path = format!("../Songs/{}", mapset_id);
-    archive.extract(out_path)?;
+    if let Err(_why) = archive.extract(&out_path) {
+        let url = format!("https://api.chimu.moe/v1/download/{}?n=0", mapset_id);
+        let bytes = reqwest::get(url).await?.bytes().await?;
+        let cursor = Cursor::new(bytes);
+        let mut archive = ZipArchive::new(cursor)?;
+        archive.extract(&out_path)?;
+    }
 
     Ok(())
 }
