@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use osu_db::Replay;
 use reqwest::{
     multipart::{Form, Part},
@@ -23,7 +24,7 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     time,
 };
-use zip::ZipArchive;
+use zip::{result::ZipError, ZipArchive};
 
 #[derive(Deserialize)]
 pub struct UploadResponse {
@@ -257,22 +258,25 @@ pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part, Box<dyn Error>> {
 }
 
 async fn download_mapset(mapset_id: u32) -> Result<(), Box<dyn Error>> {
-    let url = format!("https://kitsu.moe/d/{}", mapset_id);
-    let bytes = reqwest::get(url).await?.bytes().await?;
-    let cursor = Cursor::new(bytes);
-    let mut archive = ZipArchive::new(cursor)?;
     let out_path = format!("../Songs/{}", mapset_id);
-    if let Err(_why) = archive.extract(&out_path) {
+    let url = format!("https://kitsu.moe/d/{}", mapset_id);
+
+    if download_mapset_(url, &out_path).await.is_err() {
         let url = format!("https://api.chimu.moe/v1/download/{}?n=0", mapset_id);
-        let bytes = reqwest::get(url).await?.bytes().await?;
-        let cursor = Cursor::new(bytes);
-        let mut archive = ZipArchive::new(cursor)?;
-        archive.extract(&out_path)?;
+        download_mapset_(url, &out_path).await?;
     }
 
     Ok(())
 }
 
+async fn download_mapset_(url: String, out_path: &str) -> Result<(), Box<dyn Error>> {
+    let bytes = reqwest::get(url).await?.bytes().await?;
+    let cursor = Cursor::new(bytes);
+    let mut archive = ZipArchive::new(cursor)?;
+    archive.extract(out_path)?;
+
+    Ok(())
+}
 async fn create_title(
     replay: &Replay,
     map_path: String,
