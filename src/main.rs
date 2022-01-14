@@ -91,9 +91,8 @@ impl EventHandler for Handler {
             };
 
             if let Err(why) = tokio::fs::write("src/server_settings.json", final_file).await {
-                let err = Error::new(why).context(format!(
-                    "failed writing to `src/server_settings.json` on GuildCreate"
-                ));
+                let err = Error::new(why)
+                    .context("failed writing to `src/server_settings.json` on GuildCreate");
                 warn!("{:?}", err);
             }
         }

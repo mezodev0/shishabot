@@ -26,7 +26,7 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let settings_path = format!("../danser/settings/{}.json", author);
     let file_content = tokio::fs::read_to_string(settings_path).await?;
     let settings: Settings = serde_json::from_str(&file_content)?;
-    let color = get_user_role_color(&msg, &ctx).await?;
+    let color = get_user_role_color(msg, ctx).await?;
 
     msg.channel_id
         .send_message(&ctx, |m| {
