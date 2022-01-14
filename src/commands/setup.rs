@@ -1,3 +1,4 @@
+use anyhow::Error;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::{channel::Message, id::ChannelId},
@@ -20,7 +21,7 @@ async fn setup(ctx: &Context, msg: &Message) -> CommandResult {
         let mut settings: Root = serde_json::from_str(&settings_file)?;
         let mut count = 0;
         for mut server in settings.servers.iter_mut() {
-            if server.server_id == msg.guild_id.unwrap().to_string() {
+            if server.server_id == msg.guild_id.unwrap_or_default().to_string() {
                 server.replay_channel = id1.to_string();
                 server.output_channel = id2.to_string();
                 count += 1;
@@ -28,10 +29,13 @@ async fn setup(ctx: &Context, msg: &Message) -> CommandResult {
             }
         }
 
-        let edited_settings = serde_json::to_string(&settings).unwrap();
+        let edited_settings = serde_json::to_string(&settings)?;
+
         if let Err(why) = tokio::fs::write("src/server_settings.json", edited_settings).await {
-            warn!("Failed to edit server specific settings: {}", why);
+            let err = Error::new(why).context("failed to edit server specific settings");
+            warn!("{:?}", err);
         }
+
         if count == 0 {
             msg.reply(&ctx, "There was an error setting up the channels!")
                 .await?;

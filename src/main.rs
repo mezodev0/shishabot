@@ -1,9 +1,21 @@
 #[macro_use]
+extern crate anyhow;
+
+#[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
 extern crate log;
 
+use std::{
+    env,
+    fs::{self, File},
+    io::Write,
+    path::Path,
+    sync::Arc,
+};
+
+use anyhow::{Error, Result};
 use rosu_v2::Osu;
 use serenity::{
     async_trait,
@@ -14,18 +26,12 @@ use serenity::{
     model::prelude::*,
     prelude::*,
 };
-use std::{
-    env,
-    fs::{self, File},
-    io::Write,
-    path::Path,
-    sync::Arc,
-};
+use tokio::sync::mpsc;
+
+use crate::commands::server_settings_struct::Server;
 
 mod commands;
 use commands::*;
-
-use crate::commands::server_settings_struct::Server;
 
 mod process_replays;
 use process_replays::*;
@@ -34,7 +40,7 @@ mod logging;
 
 struct ReplayHandler;
 impl TypeMapKey for ReplayHandler {
-    type Value = tokio::sync::mpsc::UnboundedSender<Data>;
+    type Value = mpsc::UnboundedSender<Data>;
 }
 
 struct Handler;
@@ -44,30 +50,51 @@ impl EventHandler for Handler {
         info!("{} is connected!", ready.user.name);
         ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
             .await;
-        if create_missing_folders_and_files().await.is_ok() {
-            info!("created folders and files");
-        }
     }
 
     async fn guild_create(&self, _ctx: Context, guild: Guild, is_new: bool) {
         if is_new {
             let new_setting: Server = Server {
                 server_id: guild.id.to_string(),
-                replay_channel: "".to_string(),
-                output_channel: "".to_string(),
+                replay_channel: String::new(),
+                output_channel: String::new(),
             };
 
-            let settings_file = tokio::fs::read_to_string("src/server_settings.json")
-                .await
-                .unwrap();
+            let settings_file = match tokio::fs::read_to_string("src/server_settings.json").await {
+                Ok(content) => content,
+                Err(why) => {
+                    let err = Error::new(why)
+                        .context("failed to read `src/server_settings.json` on GuildCreate");
+                    return error!("{:?}", err);
+                }
+            };
+
             let mut existing_settings: server_settings_struct::Root =
-                serde_json::from_str(&settings_file).unwrap();
+                match serde_json::from_str(&settings_file) {
+                    Ok(settings) => settings,
+                    Err(why) => {
+                        let err = Error::new(why)
+                            .context("failed to deserialize settings file on GuildCreate");
+                        return error!("{:?}", err);
+                    }
+                };
 
             existing_settings.servers.push(new_setting);
 
-            let final_file = serde_json::to_string(&existing_settings).unwrap();
+            let final_file = match serde_json::to_string(&existing_settings) {
+                Ok(content) => content,
+                Err(why) => {
+                    let err =
+                        Error::new(why).context("failed to serialize settings on GuildCreate");
+                    return error!("{:?}", err);
+                }
+            };
+
             if let Err(why) = tokio::fs::write("src/server_settings.json", final_file).await {
-                warn!("Failed to create server specific settings: {}", why);
+                let err = Error::new(why).context(format!(
+                    "failed writing to `src/server_settings.json` on GuildCreate"
+                ));
+                warn!("{:?}", err);
             }
         }
     }
@@ -77,23 +104,23 @@ impl EventHandler for Handler {
         let sender = data.get::<ReplayHandler>().unwrap();
 
         match parse_attachment_replay(&msg, sender, ctx.shard.clone()).await {
-            AttachmentParseResult::NoAttachmentOrReplay => {}
-            AttachmentParseResult::BeingProcessed => {
+            Ok(AttachmentParseSuccess::NoAttachmentOrReplay) => {}
+            Ok(AttachmentParseSuccess::BeingProcessed) => {
                 let reaction = ReactionType::Unicode("✅".to_string());
                 if let Err(why) = msg.react(&ctx, reaction).await {
-                    warn!("failed to reply: {}", why);
+                    let err =
+                        Error::new(why).context("failed to react after attachment parse success");
+                    warn!("{:?}", err);
                 }
             }
-            AttachmentParseResult::FailedDownload(err) => {
-                warn!("download failed: {}", err);
+            Err(why) => {
+                let err = Error::new(why).context("failed to parse attachment");
+                warn!("{:?}", err);
+
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
-                    warn!("failed to reply: {}", why);
-                }
-            }
-            AttachmentParseResult::FailedParsing(err) => {
-                warn!("parsing failed: {}", err);
-                if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
-                    warn!("failed to reply: {}", why);
+                    let err =
+                        Error::new(why).context("failed to reply after attachment parse error");
+                    warn!("{:?}", err);
                 }
             }
         }
@@ -113,11 +140,18 @@ async fn main() {
     dotenv::dotenv().expect("Failed to read .env file");
     logging::initialize().expect("Failed to initialize logging");
 
+    match create_missing_folders_and_files().await {
+        Ok(_) => info!("created folders and files"),
+        Err(why) => panic!("{:?}", why),
+    }
+
     let token = env::var("DISCORD_TOKEN").expect("Expected a token from the env");
+
     let client_id: u64 = env::var("CLIENT_ID")
         .expect("Expected client id from the env")
         .parse()
-        .unwrap();
+        .expect("Expected client id to be an integer");
+
     let client_secret: String =
         env::var("CLIENT_SECRET").expect("Expected client secret from the env");
 
@@ -129,43 +163,57 @@ async fn main() {
         .group(&DANSER_GROUP)
         .help(&HELP);
 
-    let mut client = Client::builder(&token)
+    let client_fut = Client::builder(&token)
         .event_handler(Handler)
-        .framework(framework)
-        .await
-        .expect("Failed to create client");
+        .framework(framework);
 
-    let http = Arc::clone(&client.cache_and_http.http);
+    let mut client = match client_fut.await {
+        Ok(client) => client,
+        Err(why) => panic!(
+            "{:?}",
+            Error::new(why).context("failed to create discord client")
+        ),
+    };
 
     let osu: Osu = match Osu::new(client_id, client_secret).await {
         Ok(client) => client,
         Err(why) => panic!(
-            "Failed to create client or make initial osu!api interaction: {}",
-            why
+            "{:?}",
+            Error::new(why).context("failed to create osu! client")
         ),
     };
 
-    let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+    let http = Arc::clone(&client.cache_and_http.http);
+    let (sender, receiver) = mpsc::unbounded_channel();
     tokio::spawn(process_replay(receiver, osu, http));
+
     {
         let mut data = client.data.write().await;
         data.insert::<ReplayHandler>(sender);
     }
 
     if let Err(why) = client.start().await {
-        error!("Client Error: {:?}", why);
+        error!("{:?}", Error::new(why).context("critical client error"));
     }
+
+    info!("Shutting down");
 }
 
-async fn create_missing_folders_and_files() -> std::io::Result<()> {
-    fs::create_dir_all("../Songs")?;
-    fs::create_dir_all("../Skins")?;
-    fs::create_dir_all("../Replays")?;
-    fs::create_dir_all("../Downloads")?;
+async fn create_missing_folders_and_files() -> Result<()> {
+    use anyhow::Context;
+
+    fs::create_dir_all("../Songs").context("failed to create `../Songs`")?;
+    fs::create_dir_all("../Skins").context("failed to create `../Skins`")?;
+    fs::create_dir_all("../Replays").context("failed to create `../Replays`")?;
+    fs::create_dir_all("../Downloads").context("failed to create `../Downloads`")?;
+
     if !Path::new("src/server_settings.json").exists() {
-        let mut file = File::create("src/server_settings.json")?;
-        file.write_all(b"{\"Servers\":[]}")?;
+        let mut file = File::create("src/server_settings.json")
+            .context("failed to create file `src/server_settings.json`")?;
+        file.write_all(b"{\"Servers\":[]}")
+            .context("failed writing to `src/server_settings.json`")?;
     }
+
     Ok(())
 }
 
@@ -180,6 +228,14 @@ async fn log_command(_: &Context, msg: &Message, cmd_name: &str) -> bool {
 async fn finished_command(_: &Context, _: &Message, cmd_name: &str, cmd_result: CommandResult) {
     match cmd_result {
         Ok(()) => info!("Processed command '{}'", cmd_name),
-        Err(why) => warn!("Command '{}' returned error {:?}", cmd_name, why),
+        Err(why) => {
+            warn!("Command '{}' returned error: {}", cmd_name, why);
+            let mut e = &*why as &dyn std::error::Error;
+
+            while let Some(src) = e.source() {
+                warn!("  - caused by: {}", src);
+                e = src;
+            }
+        }
     }
 }

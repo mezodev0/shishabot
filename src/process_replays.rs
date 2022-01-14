@@ -1,11 +1,13 @@
-use bytes::Bytes;
+use std::{env, io::Cursor, mem, path::Path, sync::Arc, time::Duration};
+
+use anyhow::{Context, Error, Result};
 use osu_db::Replay;
 use reqwest::{
     multipart::{Form, Part},
     Client,
 };
 use rosu_pp::{Beatmap, BeatmapExt};
-use rosu_v2::prelude::{Beatmapset, GameMode, GameMods, Osu};
+use rosu_v2::prelude::{Beatmap as Map, Beatmapset, GameMode, GameMods, Osu};
 use serde::Deserialize;
 use serenity::{
     client::bridge::gateway::ShardMessenger,
@@ -16,7 +18,6 @@ use serenity::{
         prelude::Activity,
     },
 };
-use std::{env, error::Error, io::Cursor, mem, path::Path, sync::Arc, time::Duration};
 use tokio::{
     fs::{self, File},
     io::{AsyncReadExt, AsyncWriteExt},
@@ -24,7 +25,7 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     time,
 };
-use zip::{result::ZipError, ZipArchive};
+use zip::ZipArchive;
 
 #[derive(Deserialize)]
 pub struct UploadResponse {
@@ -32,12 +33,22 @@ pub struct UploadResponse {
     pub status: i8,
 }
 
-pub enum AttachmentParseResult {
+pub enum AttachmentParseSuccess {
     NoAttachmentOrReplay,
     BeingProcessed,
-    FailedDownload(serenity::prelude::SerenityError),
-    FailedParsing(osu_db::Error),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum AttachmentParseError {
+    #[error("failed to download attachment")]
+    Download(#[from] serenity::prelude::SerenityError),
+    #[error(transparent)]
+    Other(#[from] Error),
+    #[error("failed to parse replay")]
+    Parsing(#[from] osu_db::Error),
+}
+
+type AttachmentParseResult = Result<AttachmentParseSuccess, AttachmentParseError>;
 
 pub struct Data {
     path: String,
@@ -57,9 +68,18 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
 
         let mapset = match replay_file.beatmap_hash.as_deref() {
             Some(hash) => match osu.beatmap().checksum(hash).await {
-                Ok(map) => map.mapset.unwrap(),
+                Ok(Map { mapset, .. }) => match mapset {
+                    Some(mapset) => mapset,
+                    None => {
+                        warn!("missing mapset in map");
+                        continue;
+                    }
+                },
                 Err(why) => {
-                    warn!("Failed to request map with hash {}: {}", hash, why);
+                    let err = Error::new(why)
+                        .context(format!("failed to request map with hash `{}`", hash));
+
+                    warn!("{:?}", err);
                     continue;
                 }
             },
@@ -73,23 +93,32 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
 
         let mapset_id = mapset.mapset_id;
         info!("Started map download");
+
         if let Err(why) = download_mapset(mapset_id).await {
-            warn!("Failed to download mapset: {}", why);
+            warn!("{:?}", why);
             continue;
         }
+
         info!("Finished map download");
 
         let settings = if path_exists(format!("../danser/settings/{}.json", replay_user)).await {
-            format!("{}", replay_user)
+            replay_user.to_string()
         } else {
             "default".to_string()
         };
 
-        let filename = replay_path
+        let filename_opt = replay_path
             .split('/')
             .last()
-            .and_then(|file| file.split('.').next())
-            .unwrap();
+            .and_then(|file| file.split('.').next());
+
+        let filename = match filename_opt {
+            Some(name) => name,
+            None => {
+                warn!("replay path `{}` has an unexpected form", replay_path);
+                continue;
+            }
+        };
 
         let mut command = Command::new("../danser/danser");
 
@@ -101,8 +130,8 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
             .arg(format!("-out={}", filename));
 
         shard.set_activity(Some(Activity::watching("!!help - Parsing replay")));
-
         info!("Started replay parsing");
+
         match command.output().await {
             Ok(output) => {
                 if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
@@ -114,16 +143,18 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
                 }
             }
             Err(why) => {
-                warn!("Failed to get command output: {}", why);
+                let err = Error::new(why).context("failed to get command output");
+                warn!("{:?}", err);
                 continue;
             }
         }
+
         info!("Finished replay parsing");
 
         let map_osu_file = match get_beatmap_osu_file(mapset_id).await {
             Ok(osu_file) => osu_file,
             Err(why) => {
-                warn!("Failed to get map_osu_file: {}", why);
+                warn!("{:?}", why.context("failed to get map_osu_file"));
                 continue;
             }
         };
@@ -134,23 +165,24 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         let streamable_title = match create_title(&replay_file, map_path, &mapset).await {
             Ok(title) => title,
             Err(why) => {
-                warn!("Failed to create title: {}", why);
+                warn!("{:?}", why.context("failed to create title"));
                 continue;
             }
         };
 
-        shard.set_activity(Some(Activity::watching(
-            "!!help - Uploading replay to streamable",
-        )));
+        let activity = "!!help - Uploading replay to streamable";
+        shard.set_activity(Some(Activity::watching(activity)));
 
         info!("Started upload to streamable");
+
         let shortcode = match upload(filepath, streamable_title).await {
             Ok(response) => response,
             Err(why) => {
-                warn!("Failed to upload file: {}", why);
+                warn!("{:?}", why.context("failed to upload file"));
                 continue;
             }
         };
+
         time::sleep(Duration::from_secs(5)).await;
         info!("Finished upload to streamable");
 
@@ -164,7 +196,8 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
         if let Err(why) = msg_fut.await {
-            warn!("Couldnt send streamable link: {}", why);
+            let err = Error::new(why).context("failed to send streamable link");
+            warn!("{:?}", err);
         }
     }
 }
@@ -176,48 +209,48 @@ pub async fn parse_attachment_replay(
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
         Some(a) if matches!(a.filename.split('.').last(), Some("osr")) => a,
-        Some(_) | None => return AttachmentParseResult::NoAttachmentOrReplay,
+        Some(_) | None => return Ok(AttachmentParseSuccess::NoAttachmentOrReplay),
     };
 
-    match attachment.download().await {
-        // parse the data as replay
-        Ok(bytes) => match osu_db::Replay::from_bytes(&bytes) {
-            Ok(replay) => {
-                let mut file = File::create(format!("../Downloads/{}", &attachment.filename))
-                    .await
-                    .expect("failed to create file");
+    let bytes = attachment.download().await?;
+    let replay = osu_db::Replay::from_bytes(&bytes)?;
 
-                file.write_all(&bytes).await.expect("failed to write");
+    let mut file = File::create(format!("../Downloads/{}", &attachment.filename))
+        .await
+        .context("failed to create file")?;
 
-                let replay_data = Data {
-                    path: format!("../Downloads/{}", &attachment.filename),
-                    replay,
-                    channel: msg.channel_id,
-                    user: msg.author.id,
-                    shard: shard_messenger,
-                };
+    file.write_all(&bytes)
+        .await
+        .context("failed writing to file")?;
 
-                if let Err(why) = sender.send(replay_data) {
-                    warn!("failed to send: {}", why);
-                }
+    let replay_data = Data {
+        path: format!("../Downloads/{}", &attachment.filename),
+        replay,
+        channel: msg.channel_id,
+        user: msg.author.id,
+        shard: shard_messenger,
+    };
 
-                AttachmentParseResult::BeingProcessed
-            }
-            Err(why) => AttachmentParseResult::FailedParsing(why),
-        },
-        Err(why) => AttachmentParseResult::FailedDownload(why),
+    if let Err(why) = sender.send(replay_data) {
+        warn!("failed to send: {}", why);
     }
+
+    Ok(AttachmentParseSuccess::BeingProcessed)
 }
 
-pub async fn upload(filepath: String, title: String) -> Result<UploadResponse, Box<dyn Error>> {
-    let username = env::var("STREAMABLE_USERNAME")?;
-    let password = env::var("STREAMABLE_PASSWORD")?;
+pub async fn upload(filepath: String, title: String) -> Result<UploadResponse> {
+    let username =
+        env::var("STREAMABLE_USERNAME").context("missing env variable `STREAMABLE_USERNAME`")?;
+    let password =
+        env::var("STREAMABLE_PASSWORD").context("missing env variable `STREAMABLE_PASSWORD`")?;
 
     let endpoint = "https://api.streamable.com/upload";
 
-    let form = Form::new()
-        .part("file", file(filepath).await?)
-        .text("title", title);
+    let file = file(&filepath)
+        .await
+        .with_context(|| format!("failed to load file for path `{}`", filepath))?;
+
+    let form = Form::new().part("file", file).text("title", title);
 
     let client = Client::new();
     let resp = client
@@ -225,7 +258,8 @@ pub async fn upload(filepath: String, title: String) -> Result<UploadResponse, B
         .basic_auth(username, Some(password))
         .multipart(form)
         .send()
-        .await?;
+        .await
+        .context("failed to await response")?;
 
     let response_as_json = resp.json::<UploadResponse>().await?;
 
@@ -236,16 +270,26 @@ async fn path_exists(path: String) -> bool {
     fs::metadata(path).await.is_ok()
 }
 
-pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part, Box<dyn Error>> {
+pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part> {
     let path = path.as_ref();
+
     let file_name = path
         .file_name()
         .map(|filename| filename.to_string_lossy().into_owned());
+
     let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
     let mime = mime_guess::from_ext(ext).first_or_octet_stream();
-    let mut file = File::open(path).await?;
+
+    let mut file = File::open(path)
+        .await
+        .with_context(|| format!("failed to open file `{}`", path.display()))?;
+
     let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes).await?;
+
+    file.read_to_end(&mut bytes)
+        .await
+        .with_context(|| format!("failed to read file `{}`", path.display()))?;
+
     let field = Part::bytes(bytes).mime_str(mime.essence_str())?;
 
     let part = if let Some(file_name) = file_name {
@@ -257,36 +301,57 @@ pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part, Box<dyn Error>> {
     Ok(part)
 }
 
-async fn download_mapset(mapset_id: u32) -> Result<(), Box<dyn Error>> {
+#[derive(Debug, thiserror::Error)]
+#[error("failed to download mapset\nkitsu: {}\nchimu: {}", kitsu, chimu)]
+struct MapsetDownloadError {
+    kitsu: Error,
+    chimu: Error,
+}
+
+async fn download_mapset(mapset_id: u32) -> Result<()> {
     let out_path = format!("../Songs/{}", mapset_id);
+
     let url = format!("https://kitsu.moe/d/{}", mapset_id);
 
-    if download_mapset_(url, &out_path).await.is_err() {
-        let url = format!("https://api.chimu.moe/v1/download/{}?n=0", mapset_id);
-        download_mapset_(url, &out_path).await?;
-    }
+    let kitsu = match download_mapset_(url, &out_path).await {
+        Ok(_) => return Ok(()),
+        Err(why) => why,
+    };
 
-    Ok(())
+    let url = format!("https://api.chimu.moe/v1/download/{}?n=0", mapset_id);
+
+    let chimu = match download_mapset_(url, &out_path).await {
+        Ok(_) => return Ok(()),
+        Err(why) => why,
+    };
+
+    Err(MapsetDownloadError { kitsu, chimu }.into())
 }
 
-async fn download_mapset_(url: String, out_path: &str) -> Result<(), Box<dyn Error>> {
+async fn download_mapset_(url: String, out_path: &str) -> Result<()> {
     let bytes = reqwest::get(url).await?.bytes().await?;
     let cursor = Cursor::new(bytes);
-    let mut archive = ZipArchive::new(cursor)?;
-    archive.extract(out_path)?;
+
+    let mut archive = ZipArchive::new(cursor).context("failed to create zip archive")?;
+
+    archive
+        .extract(out_path)
+        .with_context(|| format!("failed to extract zip archive at `{}`", out_path))?;
 
     Ok(())
 }
-async fn create_title(
-    replay: &Replay,
-    map_path: String,
-    mapset: &Beatmapset,
-) -> Result<String, Box<dyn Error>> {
+
+async fn create_title(replay: &Replay, map_path: String, mapset: &Beatmapset) -> Result<String> {
     let mods = replay.mods.bits();
-    let stars = Beatmap::from_path(&map_path)?.stars(mods, None).stars();
-    let mods_str = GameMods::from_bits(mods).unwrap().to_string();
+
+    let stars = Beatmap::from_path(&map_path)
+        .with_context(|| format!("failed to parse map `{}`", map_path))?
+        .stars(mods, None)
+        .stars();
+
+    let mods_str = GameMods::from_bits(mods).unwrap_or_default().to_string();
     let stars = (stars * 100.0).round() / 100.0;
-    let player = replay.player_name.as_ref().unwrap();
+    let player = replay.player_name.as_deref().unwrap_or_default();
     let map_title = &mapset.title;
     let acc = accuracy(replay, GameMode::STD);
 
@@ -298,17 +363,30 @@ async fn create_title(
     Ok(title)
 }
 
-async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String, Box<dyn Error>> {
-    let file = fs::read_to_string("../danser/danser.log").await?;
-    let line = file.lines().find(|line| line.contains("Playing:")).unwrap();
-    let map_without_artist = line.splitn(4, ' ').last().unwrap().to_string();
-    let items = std::fs::read_dir(format!("../Songs/{}", mapset_id))?;
+async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
+    let file = fs::read_to_string("../danser/danser.log")
+        .await
+        .context("failed to read danser logs")?;
+
+    let line = match file.lines().find(|line| line.contains("Playing:")) {
+        Some(line) => line,
+        None => bail!("expected `Playing:` in danser logs"),
+    };
+
+    let map_without_artist = match line.splitn(4, ' ').last() {
+        Some(map) => map.to_string(),
+        None => bail!("expected at least 5 words in danser log line `{}`", line),
+    };
+
+    let items_dir = format!("../Songs/{}", mapset_id);
+    let items = std::fs::read_dir(&items_dir)
+        .with_context(|| format!("failed to read items dir at `{}`", items_dir))?;
 
     let mut max_similarity: f32 = 0.0;
     let mut final_file_name = String::new();
 
     for item in items {
-        let file_name = item?.file_name();
+        let file_name = item.context("failed to read dir entry")?.file_name();
         let item_file_name = file_name.to_string_lossy();
 
         debug!("COMPARING: {} WITH: {}", map_without_artist, item_file_name);

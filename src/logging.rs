@@ -1,12 +1,10 @@
+use anyhow::Result;
 use flexi_logger::{
     Age, Cleanup, Criterion, DeferredNow, Duplicate, FileSpec, Logger, LoggerHandle, Naming,
 };
 use log::Record;
 use once_cell::sync::OnceCell;
-use std::{
-    error::Error,
-    io::{Result as IoResult, Write},
-};
+use std::io::{Result as IoResult, Write};
 use time::{format_description::FormatItem, macros::format_description};
 
 lazy_static! {
@@ -16,7 +14,7 @@ lazy_static! {
 
 static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 
-pub fn initialize() -> Result<(), Box<dyn Error>> {
+pub fn initialize() -> Result<()> {
     let file_spec = FileSpec::default().directory("logs");
 
     let logger_handle = Logger::try_with_str("danser_thing_rust=debug")?
