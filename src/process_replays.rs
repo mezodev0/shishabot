@@ -101,6 +101,18 @@ pub async fn process_replay(
 
         if let Err(why) = download_mapset(mapset_id, &client).await {
             warn!("{:?}", why);
+            if let Err(err) = replay_channel
+                .send_message(&http, |m| {
+                    m.content(format!(
+                        "<@{}>, failed to download map: {}",
+                        replay_user, why
+                    ))
+                })
+                .await
+            {
+                warn!("Couldn't send error message to discord: {}", err);
+            }
+            shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
             continue;
         }
 
@@ -150,6 +162,18 @@ pub async fn process_replay(
             Err(why) => {
                 let err = Error::new(why).context("failed to get command output");
                 warn!("{:?}", err);
+                if let Err(why) = replay_channel
+                    .send_message(&http, |m| {
+                        m.content(format!(
+                            "<@{}>, failed to parse replay: {}",
+                            replay_user, err
+                        ))
+                    })
+                    .await
+                {
+                    warn!("Failed to send error message to discord: {}", why);
+                }
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
                 continue;
             }
         }
@@ -184,6 +208,18 @@ pub async fn process_replay(
             Ok(response) => response,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
+                if let Err(err) = replay_channel
+                    .send_message(&http, |m| {
+                        m.content(format!(
+                            "<@{}>, failed to upload to streamable",
+                            replay_user
+                        ))
+                    })
+                    .await
+                {
+                    warn!("Failed to send error message to discord: {}", err);
+                }
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
                 continue;
             }
         };
