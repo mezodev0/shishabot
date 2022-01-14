@@ -345,6 +345,7 @@ async fn create_title(replay: &Replay, map_path: String, mapset: &Beatmapset) ->
     let mods = replay.mods.bits();
 
     let stars = Beatmap::from_path(&map_path)
+        .await
         .with_context(|| format!("failed to parse map `{}`", map_path))?
         .stars(mods, None)
         .stars();
