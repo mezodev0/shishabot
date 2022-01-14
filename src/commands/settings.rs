@@ -27,6 +27,17 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let file_content = tokio::fs::read_to_string(settings_path).await?;
     let settings: Settings = serde_json::from_str(&file_content)?;
     let color = get_user_role_color(msg, ctx).await?;
+    if msg.content.split(" ").count() == 3 {
+        let new_settings = msg.content.split(" ").collect::<Vec<&str>>();
+        edit_setting(
+            &mut settings,
+            &new_settings[1],
+            &new_settings[2],
+            &ctx,
+            &msg,
+        )
+        .await;
+    }
 
     msg.channel_id
         .send_message(&ctx, |m| {
@@ -116,4 +127,33 @@ async fn get_user_role_color(msg: &Message, ctx: &SerenityContext) -> Result<Col
     };
 
     Ok(color)
+}
+
+async fn edit_setting(
+    mut settings: &mut Settings,
+    key: &str,
+    value: &str,
+    ctx: &Context,
+    msg: &Message,
+) {
+    if key == "skin" {
+        if value.parse::<i32>().is_err() {
+            if let Err(why) = msg.reply(&ctx, "Skin is not valid!").await {
+                warn!("Couldn't send message: {}", why);
+            }
+        }
+
+        let mut skins = fs::read_dir("../Skins/").await.unwrap();
+        let mut counter = 0;
+        let mut skinlist = String::new();
+        let value_as_number = value.parse::<i32>().unwrap();
+
+        while let Some(skin) = skins.next_entry().await.unwrap() {
+            counter += 1;
+            let file_name = skin.file_name();
+            if counter == value_as_number {
+                settings.skin.currentSkin = file_name.into_string().unwrap();
+            }
+        }
+    }
 }
