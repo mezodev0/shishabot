@@ -1,24 +1,19 @@
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 pub struct Settings {
-    #[serde(rename = "Skin")]
     pub skin: Skin,
-    #[serde(rename = "Gameplay")]
     pub gameplay: Gameplay,
-    #[serde(rename = "Cursor")]
     pub cursor: Cursor,
-    #[serde(rename = "Playfield")]
     pub playfield: Playfield,
-    #[serde(rename = "Audio")]
     pub audio: Audio,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 pub struct Skin {
-    #[serde(rename = "CurrentSkin")]
-    pub currentSkin: String,
-    #[serde(rename = "Cursor")]
+    pub current_skin: String,
     pub cursor: SkinCursor,
 }
 
@@ -31,41 +26,31 @@ pub struct SkinCursor {
 #[derive(Deserialize, Debug)]
 pub struct Gameplay {
     #[serde(rename = "HitErrorMeter")]
-    pub hitErrorMeter: HitErrorMeter,
+    pub hit_error_meter: ErrorMeter,
     #[serde(rename = "AimErrorMeter")]
-    pub aimErrorMeter: AimErrorMeter,
+    pub aim_error_meter: ErrorMeter,
     #[serde(rename = "PPCounter")]
-    pub ppCounter: PPCounter,
+    pub pp_counter: PPCounter,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct HitErrorMeter {
-    #[serde(rename = "Show")]
+#[serde(rename_all = "PascalCase")]
+pub struct ErrorMeter {
     pub show: bool,
-    #[serde(rename = "UnstableRateDecimals")]
-    pub unstableRateDecimals: u64,
+    pub unstable_rate_decimals: u64,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct AimErrorMeter {
-    #[serde(rename = "Show")]
-    pub show: bool,
-    #[serde(rename = "UnstableRateDecimals")]
-    pub unstableRateDecimals: u64,
-}
-
-#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 pub struct PPCounter {
-    #[serde(rename = "Show")]
     pub show: bool,
-    #[serde(rename = "Decimals")]
     pub decimals: u64,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Cursor {
     #[serde(rename = "CursorRipples")]
-    pub cursorRipples: bool,
+    pub cursor_ripples: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -75,12 +60,10 @@ pub struct Playfield {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 pub struct Background {
-    #[serde(rename = "LoadStoryboards")]
-    pub loadStoryboards: bool,
-    #[serde(rename = "LoadVideos")]
-    pub loadVideos: bool,
-    #[serde(rename = "Dim")]
+    pub load_storyboards: bool,
+    pub load_videos: bool,
     pub dim: Dim,
 }
 
@@ -91,9 +74,8 @@ pub struct Dim {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 pub struct Audio {
-    #[serde(rename = "MusicVolume")]
-    pub musicVolume: f64,
-    #[serde(rename = "SampleVolume")]
-    pub sampleVolume: f64,
+    pub music_volume: f64,
+    pub sample_volume: f64,
 }

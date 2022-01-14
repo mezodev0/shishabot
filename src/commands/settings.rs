@@ -6,7 +6,7 @@ use serenity::{
     model::channel::Message,
     utils::Colour,
 };
-use tokio::fs::{self};
+use tokio::fs;
 
 use crate::commands::Settings;
 
@@ -41,34 +41,34 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                 e.title(format!("Settings for {}", msg.author.name))
                     .description(format!(
                         "**Skin**\n`skin`: {}\n\n**Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n**Background**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n**Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\n\n**Gameplay**\n`pp counter decimals`: {}\n`hit error decimals`: {}\n`aim error meter`: {}\n`aim error meter ur decimals`: {}",
-                        settings.skin.currentSkin,
+                        settings.skin.current_skin,
                         settings.skin.cursor.scale,
-                        if settings.cursor.cursorRipples {
+                        if settings.cursor.cursor_ripples {
                             "on"
                         } else {
                             "off"
                         },
-                        if settings.playfield.background.loadStoryboards {
+                        if settings.playfield.background.load_storyboards {
                             "on"
                         } else {
                             "off"
                         },
-                        if settings.playfield.background.loadVideos {
+                        if settings.playfield.background.load_videos {
                             "on"
                         } else {
                             "off"
                         },
                         settings.playfield.background.dim.normal,
-                        (settings.audio.musicVolume * 100.0),
-                        (settings.audio.sampleVolume * 100.0),
-                        settings.gameplay.ppCounter.decimals,
-                        settings.gameplay.hitErrorMeter.unstableRateDecimals,
-                        if settings.gameplay.aimErrorMeter.show {
+                        (settings.audio.music_volume * 100.0),
+                        (settings.audio.sample_volume * 100.0),
+                        settings.gameplay.pp_counter.decimals,
+                        settings.gameplay.hit_error_meter.unstable_rate_decimals,
+                        if settings.gameplay.aim_error_meter.show {
                             "on"
                         } else {
                             "off"
                         },
-                        settings.gameplay.aimErrorMeter.unstableRateDecimals,
+                        settings.gameplay.aim_error_meter.unstable_rate_decimals,
                     ))
                     .color(color)
             })
