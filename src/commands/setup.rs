@@ -20,8 +20,9 @@ async fn setup(ctx: &Context, msg: &Message) -> CommandResult {
         let settings_file = tokio::fs::read_to_string("src/server_settings.json").await?;
         let mut settings: Root = serde_json::from_str(&settings_file)?;
         let mut count = 0;
+
         for mut server in settings.servers.iter_mut() {
-            if server.server_id == msg.guild_id.unwrap_or_default().to_string() {
+            if server.server_id == msg.guild_id.unwrap_or_default() {
                 server.replay_channel = id1.to_string();
                 server.output_channel = id2.to_string();
                 count += 1;

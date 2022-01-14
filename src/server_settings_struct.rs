@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serenity::model::id::GuildId;
 
 #[derive(Deserialize, Debug, Serialize)]
 pub struct Root {
@@ -8,7 +9,7 @@ pub struct Root {
 
 #[derive(Deserialize, Debug, Serialize)]
 pub struct Server {
-    pub server_id: String,
+    pub server_id: GuildId,
     pub replay_channel: String,
     pub output_channel: String,
 }

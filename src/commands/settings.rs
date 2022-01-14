@@ -40,7 +40,12 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
             m.embed(|e| {
                 e.title(format!("Settings for {}", msg.author.name))
                     .description(format!(
-                        "**Skin**\n`skin`: {}\n\n**Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n**Background**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n**Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\n\n**Gameplay**\n`pp counter decimals`: {}\n`hit error decimals`: {}\n`aim error meter`: {}\n`aim error meter ur decimals`: {}",
+                        "**Skin**\n`skin`: {}\n\n\
+                        **Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n\
+                        **Background**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n\
+                        **Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\n\n\
+                        **Gameplay**\n`pp counter decimals`: {}\n`hit error decimals`: {}\n\
+                        `aim error meter`: {}\n`aim error meter ur decimals`: {}",
                         settings.skin.current_skin,
                         settings.skin.cursor.scale,
                         if settings.cursor.cursor_ripples {
@@ -102,7 +107,7 @@ async fn get_user_role_color(msg: &Message, ctx: &SerenityContext) -> Result<Col
             )
         })?;
 
-    roles.sort_by(|a, b| b.position.cmp(&a.position));
+    roles.sort_unstable_by_key(|role| -role.position);
 
     let color = if let Some(role) = roles.get(0) {
         role.colour

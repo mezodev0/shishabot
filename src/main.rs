@@ -55,7 +55,7 @@ impl EventHandler for Handler {
     async fn guild_create(&self, _ctx: Context, guild: Guild, is_new: bool) {
         if is_new {
             let new_setting: Server = Server {
-                server_id: guild.id.to_string(),
+                server_id: guild.id,
                 replay_channel: String::new(),
                 output_channel: String::new(),
             };
@@ -182,9 +182,17 @@ async fn main() {
         ),
     };
 
+    let reqwest_client = match reqwest::Client::builder().build() {
+        Ok(client) => client,
+        Err(why) => panic!(
+            "{:?}",
+            Error::new(why).context("failed to create reqwest client"),
+        ),
+    };
+
     let http = Arc::clone(&client.cache_and_http.http);
     let (sender, receiver) = mpsc::unbounded_channel();
-    tokio::spawn(process_replay(receiver, osu, http));
+    tokio::spawn(process_replay(receiver, osu, http, reqwest_client));
 
     {
         let mut data = client.data.write().await;
@@ -226,7 +234,7 @@ async fn log_command(_: &Context, msg: &Message, cmd_name: &str) -> bool {
 #[hook]
 async fn finished_command(_: &Context, _: &Message, cmd_name: &str, cmd_result: CommandResult) {
     match cmd_result {
-        Ok(()) => info!("Processed command '{}'", cmd_name),
+        Ok(_) => info!("Processed command '{}'", cmd_name),
         Err(why) => {
             warn!("Command '{}' returned error: {}", cmd_name, why);
             let mut e = &*why as &dyn std::error::Error;

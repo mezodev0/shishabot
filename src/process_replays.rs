@@ -58,7 +58,12 @@ pub struct Data {
     shard: ShardMessenger,
 }
 
-pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, http: Arc<Http>) {
+pub async fn process_replay(
+    mut receiver: UnboundedReceiver<Data>,
+    osu: Osu,
+    http: Arc<Http>,
+    client: Client,
+) {
     while let Some(replay_data) = receiver.recv().await {
         let replay_path = replay_data.path;
         let replay_file = replay_data.replay;
@@ -94,7 +99,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
         let mapset_id = mapset.mapset_id;
         info!("Started map download");
 
-        if let Err(why) = download_mapset(mapset_id).await {
+        if let Err(why) = download_mapset(mapset_id, &client).await {
             warn!("{:?}", why);
             continue;
         }
@@ -175,7 +180,7 @@ pub async fn process_replay(mut receiver: UnboundedReceiver<Data>, osu: Osu, htt
 
         info!("Started upload to streamable");
 
-        let shortcode = match upload(filepath, streamable_title).await {
+        let shortcode = match upload(filepath, streamable_title, &client).await {
             Ok(response) => response,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
@@ -238,7 +243,7 @@ pub async fn parse_attachment_replay(
     Ok(AttachmentParseSuccess::BeingProcessed)
 }
 
-pub async fn upload(filepath: String, title: String) -> Result<UploadResponse> {
+pub async fn upload(filepath: String, title: String, client: &Client) -> Result<UploadResponse> {
     let username =
         env::var("STREAMABLE_USERNAME").context("missing env variable `STREAMABLE_USERNAME`")?;
     let password =
@@ -252,7 +257,6 @@ pub async fn upload(filepath: String, title: String) -> Result<UploadResponse> {
 
     let form = Form::new().part("file", file).text("title", title);
 
-    let client = Client::new();
     let resp = client
         .post(endpoint)
         .basic_auth(username, Some(password))
@@ -308,19 +312,19 @@ struct MapsetDownloadError {
     chimu: Error,
 }
 
-async fn download_mapset(mapset_id: u32) -> Result<()> {
+async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
     let out_path = format!("../Songs/{}", mapset_id);
 
     let url = format!("https://kitsu.moe/d/{}", mapset_id);
 
-    let kitsu = match download_mapset_(url, &out_path).await {
+    let kitsu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
 
     let url = format!("https://api.chimu.moe/v1/download/{}?n=0", mapset_id);
 
-    let chimu = match download_mapset_(url, &out_path).await {
+    let chimu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
@@ -328,8 +332,8 @@ async fn download_mapset(mapset_id: u32) -> Result<()> {
     Err(MapsetDownloadError { kitsu, chimu }.into())
 }
 
-async fn download_mapset_(url: String, out_path: &str) -> Result<()> {
-    let bytes = reqwest::get(url).await?.bytes().await?;
+async fn download_mapset_(url: String, out_path: &str, client: &Client) -> Result<()> {
+    let bytes = client.get(url).send().await?.bytes().await?;
     let cursor = Cursor::new(bytes);
 
     let mut archive = ZipArchive::new(cursor).context("failed to create zip archive")?;
@@ -369,30 +373,36 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         .await
         .context("failed to read danser logs")?;
 
-    let line = match file.lines().find(|line| line.contains("Playing:")) {
-        Some(line) => line,
-        None => bail!("expected `Playing:` in danser logs"),
-    };
+    let line = file
+        .lines()
+        .find(|line| line.contains("Playing:"))
+        .ok_or_else(|| anyhow!("expected `Playing:` in danser logs"))?;
 
-    let map_without_artist = match line.splitn(4, ' ').last() {
-        Some(map) => map.to_string(),
-        None => bail!("expected at least 5 words in danser log line `{}`", line),
-    };
+    let map_without_artist = line
+        .splitn(4, ' ')
+        .last()
+        .ok_or_else(|| anyhow!("expected at least 5 words in danser log line `{}`", line))?;
 
     let items_dir = format!("../Songs/{}", mapset_id);
-    let items = std::fs::read_dir(&items_dir)
+
+    let mut items = fs::read_dir(&items_dir)
+        .await
         .with_context(|| format!("failed to read items dir at `{}`", items_dir))?;
 
     let mut max_similarity: f32 = 0.0;
     let mut final_file_name = String::new();
 
-    for item in items {
-        let file_name = item.context("failed to read dir entry")?.file_name();
+    while let Some(item) = items
+        .next_entry()
+        .await
+        .context("failed to read dir entry")?
+    {
+        let file_name = item.file_name();
         let item_file_name = file_name.to_string_lossy();
 
         debug!("COMPARING: {} WITH: {}", map_without_artist, item_file_name);
 
-        let similarity = levenshtein_similarity(&map_without_artist, &item_file_name);
+        let similarity = levenshtein_similarity(map_without_artist, &item_file_name);
 
         if similarity > max_similarity {
             max_similarity = similarity;
