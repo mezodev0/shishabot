@@ -128,7 +128,7 @@ pub struct HitErrorMeter {
     pub show_positional_misses: bool,
     pub show_unstable_rate: bool,
     pub unstable_rate_decimals: i64,
-    pub unstable_rate_scale: i64,
+    pub unstable_rate_scale: f64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -502,7 +502,7 @@ pub struct Bloom {
     pub enabled: bool,
     pub bloom_to_the_beat: bool,
     pub bloom_beat_addition: f64,
-    pub threshold: i64,
+    pub threshold: f64,
     pub blur: f64,
     pub power: f64,
 }
