@@ -379,7 +379,7 @@ pub struct Snaking {
 pub struct Colors2 {
     pub mandala_textures_trigger: i64,
     pub mandala_textures_alpha: f64,
-    pub color: Color,
+    pub color: Colors,
     pub use_combo_colors: bool,
     pub combo_colors: Vec<Color>,
     pub use_skin_combo_colors: bool,
@@ -401,7 +401,7 @@ pub struct Sliders2 {
 #[serde(rename_all = "PascalCase")]
 pub struct Border {
     pub use_hit_circle_color: bool,
-    pub color: Color,
+    pub color: Colors,
     pub enable_custom_gradient_offset: bool,
     pub custom_gradient_offset: i64,
 }
@@ -410,7 +410,7 @@ pub struct Border {
 #[serde(rename_all = "PascalCase")]
 pub struct Body {
     pub use_hit_circle_color: bool,
-    pub color: Color,
+    pub color: Colors,
     pub inner_offset: f64,
     pub outer_offset: f64,
     pub inner_alpha: f64,
