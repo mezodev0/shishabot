@@ -55,6 +55,7 @@ pub struct Data {
     replay: Replay,
     channel: ChannelId,
     user: UserId,
+    replay_params: String,
     shard: ShardMessenger,
 }
 
@@ -145,6 +146,14 @@ pub async fn process_replay(
             .arg(format!("-settings={}", settings))
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
+
+        if replay_data.replay_params.contains("!!start") {
+            let params = replay_data.replay_params.split(" ").collect::<Vec<&str>>();
+            command.args(["-start", params[1]]);
+            if params.len() == 3 {
+                command.args(["-end", params[2]]);
+            }
+        }
 
         shard.set_activity(Some(Activity::watching("!!help - Parsing replay")));
         info!("Started replay parsing");
@@ -269,6 +278,7 @@ pub async fn parse_attachment_replay(
         replay,
         channel: msg.channel_id,
         user: msg.author.id,
+        replay_params: msg.content.to_string(),
         shard: shard_messenger,
     };
 
@@ -381,7 +391,7 @@ async fn download_mapset_(url: String, out_path: &str, client: &Client) -> Resul
     Ok(())
 }
 
-async fn create_title(replay: &Replay, map_path: String, mapset: &Beatmapset) -> Result<String> {
+async fn create_title(replay: &Replay, map_path: String, _mapset: &Beatmapset) -> Result<String> {
     let mods = replay.mods.bits();
 
     let stars = Beatmap::from_path(&map_path)
@@ -393,7 +403,7 @@ async fn create_title(replay: &Replay, map_path: String, mapset: &Beatmapset) ->
     let mods_str = GameMods::from_bits(mods).unwrap_or_default().to_string();
     let stars = (stars * 100.0).round() / 100.0;
     let player = replay.player_name.as_deref().unwrap_or_default();
-    let map_title = &mapset.title;
+    let map_title = get_title().await.unwrap();
     let acc = accuracy(replay, GameMode::STD);
 
     let title = format!(
@@ -549,4 +559,22 @@ fn total_hits(replay: &Replay, mode: GameMode) -> u32 {
     }
 
     amount
+}
+
+async fn get_title() -> Result<String> {
+    let file = fs::read_to_string("../danser/danser.log")
+        .await
+        .context("failed to read danser logs")?;
+
+    let line = file
+        .lines()
+        .find(|line| line.contains("Playing:"))
+        .ok_or_else(|| anyhow!("expected `Playing:` in danser logs"))?;
+
+    let map_without_artist = line
+        .splitn(4, ' ')
+        .last()
+        .ok_or_else(|| anyhow!("expected at least 5 words in danser log line `{}`", line))?;
+
+    Ok(map_without_artist.to_string())
 }
