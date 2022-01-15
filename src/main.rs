@@ -28,8 +28,6 @@ use serenity::{
 };
 use tokio::sync::mpsc;
 
-use crate::commands::server_settings_struct::Server;
-
 mod commands;
 use commands::*;
 
@@ -43,6 +41,11 @@ impl TypeMapKey for ReplayHandler {
     type Value = mpsc::UnboundedSender<Data>;
 }
 
+struct ServerSettings;
+impl TypeMapKey for ServerSettings {
+    type Value = commands::server_settings_struct::Root;
+}
+
 struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
@@ -52,58 +55,13 @@ impl EventHandler for Handler {
             .await;
     }
 
-    async fn guild_create(&self, _ctx: Context, guild: Guild, is_new: bool) {
-        if is_new {
-            let new_setting: Server = Server {
-                server_id: guild.id,
-                replay_channel: String::new(),
-                output_channel: String::new(),
-            };
-
-            let settings_file = match tokio::fs::read_to_string("src/server_settings.json").await {
-                Ok(content) => content,
-                Err(why) => {
-                    let err = Error::new(why)
-                        .context("failed to read `src/server_settings.json` on GuildCreate");
-                    return error!("{:?}", err);
-                }
-            };
-
-            let mut existing_settings: server_settings_struct::Root =
-                match serde_json::from_str(&settings_file) {
-                    Ok(settings) => settings,
-                    Err(why) => {
-                        let err = Error::new(why)
-                            .context("failed to deserialize settings file on GuildCreate");
-                        return error!("{:?}", err);
-                    }
-                };
-
-            existing_settings.servers.push(new_setting);
-
-            let final_file = match serde_json::to_string(&existing_settings) {
-                Ok(content) => content,
-                Err(why) => {
-                    let err =
-                        Error::new(why).context("failed to serialize settings on GuildCreate");
-                    return error!("{:?}", err);
-                }
-            };
-
-            if let Err(why) = tokio::fs::write("src/server_settings.json", final_file).await {
-                let err = Error::new(why)
-                    .context("failed writing to `src/server_settings.json` on GuildCreate");
-                warn!("{:?}", err);
-            }
-        }
-    }
-
     async fn message(&self, ctx: Context, msg: Message) {
         let data = ctx.data.read().await;
         let sender = data.get::<ReplayHandler>().unwrap();
+        let shard = ctx.shard.clone();
 
-        match parse_attachment_replay(&msg, sender, ctx.shard.clone()).await {
-            Ok(AttachmentParseSuccess::NoAttachmentOrReplay) => {}
+        match parse_attachment_replay(&msg, sender, shard, &ctx.data).await {
+            Ok(AttachmentParseSuccess::NothingToDo) => {}
             Ok(AttachmentParseSuccess::BeingProcessed) => {
                 let reaction = ReactionType::Unicode("✅".to_string());
                 if let Err(why) = msg.react(&ctx, reaction).await {
@@ -190,6 +148,22 @@ async fn main() {
         ),
     };
 
+    let settings_content = match tokio::fs::read_to_string("src/server_settings.json").await {
+        Ok(content) => content,
+        Err(why) => panic!(
+            "{:?}",
+            Error::new(why).context("failed to read `src/server_settings.json`")
+        ),
+    };
+
+    let settings = match serde_json::from_str(&settings_content) {
+        Ok(settings) => settings,
+        Err(why) => panic!(
+            "{:?}",
+            Error::new(why).context("failed to deserialize server settings")
+        ),
+    };
+
     let http = Arc::clone(&client.cache_and_http.http);
     let (sender, receiver) = mpsc::unbounded_channel();
     tokio::spawn(process_replay(receiver, osu, http, reqwest_client));
@@ -197,6 +171,7 @@ async fn main() {
     {
         let mut data = client.data.write().await;
         data.insert::<ReplayHandler>(sender);
+        data.insert::<ServerSettings>(settings);
     }
 
     if let Err(why) = client.start().await {

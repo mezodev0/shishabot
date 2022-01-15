@@ -17,6 +17,7 @@ use serenity::{
         id::{ChannelId, UserId},
         prelude::Activity,
     },
+    prelude::{RwLock, TypeMap},
 };
 use tokio::{
     fs::{self, File},
@@ -27,6 +28,8 @@ use tokio::{
 };
 use zip::ZipArchive;
 
+use crate::ServerSettings;
+
 #[derive(Deserialize)]
 pub struct UploadResponse {
     pub shortcode: String,
@@ -34,7 +37,7 @@ pub struct UploadResponse {
 }
 
 pub enum AttachmentParseSuccess {
-    NoAttachmentOrReplay,
+    NothingToDo,
     BeingProcessed,
 }
 
@@ -256,10 +259,32 @@ pub async fn parse_attachment_replay(
     msg: &Message,
     sender: &UnboundedSender<Data>,
     shard_messenger: ShardMessenger,
+    ctx_data: &RwLock<TypeMap>,
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
         Some(a) if matches!(a.filename.split('.').last(), Some("osr")) => a,
-        Some(_) | None => return Ok(AttachmentParseSuccess::NoAttachmentOrReplay),
+        Some(_) | None => return Ok(AttachmentParseSuccess::NothingToDo),
+    };
+
+    let guild_id = match msg.guild_id {
+        Some(guild_id) => guild_id,
+        None => return Ok(AttachmentParseSuccess::NothingToDo),
+    };
+
+    let channel_opt = {
+        let data = ctx_data.read().await;
+        let settings = data.get::<ServerSettings>().unwrap();
+
+        settings
+            .servers
+            .get(&guild_id)
+            .filter(|s| s.replay_channel == msg.channel_id)
+            .map(|s| s.output_channel)
+    };
+
+    let output_channel = match channel_opt {
+        Some(channel_id) => channel_id,
+        None => return Ok(AttachmentParseSuccess::NothingToDo),
     };
 
     let bytes = attachment.download().await?;
@@ -276,7 +301,7 @@ pub async fn parse_attachment_replay(
     let replay_data = Data {
         path: format!("../Downloads/{}", &attachment.filename),
         replay,
-        channel: msg.channel_id,
+        channel: output_channel,
         user: msg.author.id,
         replay_params: msg.content.to_string(),
         shard: shard_messenger,
