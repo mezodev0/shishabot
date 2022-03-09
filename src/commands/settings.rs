@@ -29,14 +29,21 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let color = get_user_role_color(msg, ctx).await?;
     if msg.content.split(" ").count() == 3 {
         let new_settings = msg.content.split(" ").collect::<Vec<&str>>();
-        edit_setting(
-            &mut settings,
-            &new_settings[1],
-            &new_settings[2],
-            &ctx,
-            &msg,
-        )
-        .await;
+
+        match edit_setting(&mut settings, &new_settings[1], &new_settings[2], &msg).await {
+            Ok(_) => {
+                msg.reply(&ctx, "Edited setting successfully!").await?;
+            }
+            Err(EditSettingsError::Other(err)) => {
+                let _ = msg.reply(&ctx, "something went wrong, blame mezo").await;
+
+                return Err(err.into());
+            }
+            Err(why) => {
+                msg.reply(&ctx, why).await?;
+            }
+        }
+
         return Ok(());
     }
 
@@ -131,218 +138,174 @@ async fn get_user_role_color(msg: &Message, ctx: &SerenityContext) -> Result<Col
     Ok(color)
 }
 
+#[derive(Debug, thiserror::Error)]
+enum EditSettingsError {
+    #[error("Aim error meter ur decimals have to be between 1 and 3!")]
+    InvalidAimErrorDecimals,
+    #[error("Cursorsize has to be between 0.1 and 2!")]
+    InvalidCursorSize,
+    #[error("Dim has to be between 0 and 1!")]
+    InvalidDim,
+    #[error("Hit error decimals have to be between 1 and 3!")]
+    InvalidHitErrorDecimals,
+    #[error("Hitsound volume has to be between 1 and 100!")]
+    InvalidHitsoundVolume,
+    #[error("Music volume has to be between 1 and 100!")]
+    InvalidMusicVolume,
+    #[error("PP counter decimals have to be between 1 and 3!")]
+    InvalidPpCounterDecimals,
+    #[error("Skin is not valid!")]
+    InvalidSkin,
+    #[error("Value is not valid!")]
+    InvalidValue,
+    #[error("Couldn't find skin!")]
+    MissingSkin,
+    #[error(transparent)]
+    Other(#[from] Error),
+}
+
 async fn edit_setting(
-    mut settings: &mut Settings,
+    settings: &mut Settings,
     key: &str,
     value: &str,
-    ctx: &SerenityContext,
     msg: &Message,
-) {
-    if key == "skin" {
-        if value.parse::<i32>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Skin is not valid!").await {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
-        }
+) -> Result<(), EditSettingsError> {
+    match key {
+        "skin" => {
+            let value_as_number: i32 = value.parse().map_err(|_| EditSettingsError::InvalidSkin)?;
 
-        let mut skins = fs::read_dir("../Skins/").await.unwrap();
-        let mut counter = 0;
-        let value_as_number = value.parse::<i32>().unwrap();
-        let mut skin_found = false;
+            let mut skins = fs::read_dir("../Skins/")
+                .await
+                .context("failed to read dir `../Skins/`")?;
 
-        while let Some(skin) = skins.next_entry().await.unwrap() {
-            let file_name = skin.file_name();
-            counter += 1;
-            if counter == value_as_number {
-                settings.skin.current_skin = file_name.into_string().unwrap();
-                skin_found = true;
-                break;
-            }
-        }
+            let mut counter = 0;
+            let mut skin_found = false;
 
-        if !skin_found {
-            if let Err(why) = msg.reply(&ctx, "Couldn't find skin!").await {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
-        }
-    } else if key == "cursor_size" {
-        if value.parse::<f64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
-        }
+            while let Some(skin) = skins
+                .next_entry()
+                .await
+                .context("failed to get entry of `../Skins/`")?
+            {
+                let file_name = skin.file_name();
+                counter += 1;
 
-        let value_as_number = value.parse::<f64>().unwrap();
-        if value_as_number < 0.1 || value_as_number > 2.0 {
-            if let Err(why) = msg
-                .reply(&ctx, "Cursorsize has to be between 0.1 and 2!")
-                .await
-            {
-                warn!("Couldn't send message: {}", why);
+                if counter == value_as_number {
+                    settings.skin.current_skin = file_name.into_string().unwrap();
+                    skin_found = true;
+                    break;
+                }
             }
-            return;
-        }
-        settings.skin.cursor.scale = value_as_number;
-    } else if key == "cursor_ripple" {
-        let value_capitalized = value.to_uppercase();
-        if value_capitalized == "ON" || value_capitalized == "TRUE" || value_capitalized == "YES" {
-            settings.cursor.cursor_ripples = true;
-        } else {
-            settings.cursor.cursor_ripples = false;
-        }
-    } else if key == "storyboard" {
-        let value_capitalized = value.to_uppercase();
-        if value_capitalized == "ON" || value_capitalized == "TRUE" || value_capitalized == "YES" {
-            settings.playfield.background.load_storyboards = true;
-        } else {
-            settings.playfield.background.load_storyboards = false;
-        }
-    } else if key == "background_video" || key == "video" {
-        let value_capitalized = value.to_uppercase();
-        if value_capitalized == "ON" || value_capitalized == "TRUE" || value_capitalized == "YES" {
-            settings.playfield.background.load_videos = true;
-        } else {
-            settings.playfield.background.load_videos = false;
-        }
-    } else if key == "dim" {
-        if value.parse::<f64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
-        }
 
-        let value_as_number = value.parse::<f64>().unwrap();
-        if value_as_number < 0.0 || value_as_number > 1.0 {
-            if let Err(why) = msg.reply(&ctx, "Dim has to be between 0 and 1!").await {
-                warn!("Couldn't send message: {}", why);
+            if !skin_found {
+                return Err(EditSettingsError::MissingSkin);
             }
-            return;
         }
-        settings.playfield.background.dim.normal = value_as_number;
-    } else if key == "music_volume" || key == "music" {
-        let clean_value = value.replace("%", "");
-        if clean_value.parse::<u64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
+        "cursor_size" => {
+            let value_as_number: f64 =
+                value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 0.1 || value_as_number > 2.0 {
+                return Err(EditSettingsError::InvalidCursorSize);
             }
-            return;
+
+            settings.skin.cursor.scale = value_as_number;
         }
-        let value_as_number = value.parse::<u64>().unwrap();
-        if value_as_number < 1 || value_as_number > 100 {
-            if let Err(why) = msg
-                .reply(&ctx, "Music volume has to be between 1 and 100!")
-                .await
-            {
-                warn!("Couldn't send message: {}", why);
+        "cursor_ripple" => {
+            settings.cursor.cursor_ripples =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "storyboard" => {
+            settings.playfield.background.load_storyboards =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "background_video" | "video" => {
+            settings.playfield.background.load_videos =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "dim" => {
+            let value_as_number: f64 =
+                value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 0.0 || value_as_number > 1.0 {
+                return Err(EditSettingsError::InvalidDim);
             }
-            return;
+
+            settings.playfield.background.dim.normal = value_as_number;
         }
-        let value_as_float: f64 = (value_as_number / 100) as f64;
-        settings.audio.music_volume = value_as_float;
-    } else if key == "hitsound_volume" || key == "hitsound" {
-        let clean_value = value.replace("%", "");
-        if clean_value.parse::<u64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
+        "music_volume" | "music" => {
+            let value_as_number: f64 = value
+                .trim_end_matches('%')
+                .parse()
+                .map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 1.0 || value_as_number > 100.0 {
+                return Err(EditSettingsError::InvalidMusicVolume);
             }
-            return;
+
+            settings.audio.music_volume = value_as_number / 100.0;
         }
-        let value_as_number = value.parse::<u64>().unwrap();
-        if value_as_number < 1 || value_as_number > 100 {
-            if let Err(why) = msg
-                .reply(&ctx, "Hitsound volume has to be between 1 and 100!")
-                .await
-            {
-                warn!("Couldn't send message: {}", why);
+        "hitsound_volume" | "hitsound" => {
+            let value_as_number: f64 = value
+                .trim_end_matches('%')
+                .parse()
+                .map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 1.0 || value_as_number > 100.0 {
+                return Err(EditSettingsError::InvalidHitsoundVolume);
             }
-            return;
+
+            settings.audio.sample_volume = value_as_number / 100.0;
         }
-        let value_as_float: f64 = (value_as_number / 100) as f64;
-        settings.audio.sample_volume = value_as_float;
-    } else if key == "pp_counter_decimals" {
-        if value.parse::<u64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
+        "pp_counter_decimals" => {
+            let value_as_number: u64 =
+                value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 1 || value_as_number > 3 {
+                return Err(EditSettingsError::InvalidPpCounterDecimals);
             }
-            return;
+
+            settings.gameplay.pp_counter.decimals = value_as_number;
         }
-        let value_as_number = value.parse::<u64>().unwrap();
-        if value_as_number < 1 || value_as_number > 3 {
-            if let Err(why) = msg
-                .reply(&ctx, "PP counter decimals have to be between 1 and 3!")
-                .await
-            {
-                warn!("Couldn't send message: {}", why);
+        "hit_error_decimals" => {
+            let value_as_number: u64 =
+                value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 1 || value_as_number > 3 {
+                return Err(EditSettingsError::InvalidHitErrorDecimals);
             }
-            return;
+
+            settings.gameplay.pp_counter.decimals = value_as_number;
         }
-        settings.gameplay.pp_counter.decimals = value_as_number;
-    } else if key == "hit_error_decimals" {
-        if value.parse::<u64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
+        "aim_error_meter_ur_decimals" => {
+            let value_as_number: u64 =
+                value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
+
+            if value_as_number < 1 || value_as_number > 3 {
+                return Err(EditSettingsError::InvalidAimErrorDecimals);
             }
-            return;
+
+            settings.gameplay.pp_counter.decimals = value_as_number;
         }
-        let value_as_number = value.parse::<u64>().unwrap();
-        if value_as_number < 1 || value_as_number > 3 {
-            if let Err(why) = msg
-                .reply(&ctx, "Hit error decimals have to be between 1 and 3!")
-                .await
-            {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
+        "aim_error_meter" => {
+            settings.gameplay.aim_error_meter.show =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
-        settings.gameplay.pp_counter.decimals = value_as_number;
-    } else if key == "aim_error_meter_ur_decimals" {
-        if value.parse::<u64>().is_err() {
-            if let Err(why) = msg.reply(&ctx, "Value is not valid!").await {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
-        }
-        let value_as_number = value.parse::<u64>().unwrap();
-        if value_as_number < 1 || value_as_number > 3 {
-            if let Err(why) = msg
-                .reply(
-                    &ctx,
-                    "Aim error meter ur decimals have to be between 1 and 3!",
-                )
-                .await
-            {
-                warn!("Couldn't send message: {}", why);
-            }
-            return;
-        }
-        settings.gameplay.pp_counter.decimals = value_as_number;
-    } else if key == "aim_error_meter" {
-        let value_capitalized = value.to_uppercase();
-        if value_capitalized == "ON" || value_capitalized == "TRUE" || value_capitalized == "YES" {
-            settings.gameplay.aim_error_meter.show = true;
-        } else {
-            settings.gameplay.aim_error_meter.show = false;
-        }
+        _ => {}
     }
 
-    let edited_setting = serde_json::to_string(&settings).unwrap();
-    if let Err(why) = tokio::fs::write(
-        format!("../danser/settings/{}.json", msg.author.id),
-        edited_setting,
-    )
-    .await
-    {
-        let err = Error::new(why).context(format!(
-            "failed writing to `../danser/settings/{}.json` on edit_setting",
-            msg.author.id
-        ));
-        warn!("{:?}", err);
-    }
-    msg.reply(&ctx, "Edited setting successfully!")
+    let edited_setting =
+        serde_json::to_string(&settings).context("failed to serialize edited settings")?;
+
+    let path = format!("../danser/settings/{}.json", msg.author.id);
+
+    tokio::fs::write(path, edited_setting)
         .await
-        .unwrap();
+        .with_context(|| {
+            format!(
+                "failed writing to `../danser/settings/{}.json` on edit_setting",
+                msg.author.id
+            )
+        })?;
+
+    Ok(())
 }
