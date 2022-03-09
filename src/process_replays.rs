@@ -392,7 +392,6 @@ async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
-    info!("Kitsu.moe probably failed! Using secondary mirror");
     let url = format!("https://api.chimu.moe/v1/download/{}?n=0", mapset_id);
 
     let chimu = match download_mapset_(url, &out_path, client).await {
