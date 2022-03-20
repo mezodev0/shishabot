@@ -10,8 +10,10 @@ extern crate log;
 use std::{
     env,
     fs::{self, File},
+    future::Future,
     io::Write,
     path::Path,
+    pin::Pin,
     sync::Arc,
 };
 
@@ -35,6 +37,8 @@ mod process_replays;
 use process_replays::*;
 
 mod logging;
+
+const DEFAULT_PREFIX: &str = "!!";
 
 struct ReplayHandler;
 impl TypeMapKey for ReplayHandler {
@@ -85,7 +89,7 @@ impl EventHandler for Handler {
 }
 
 #[group]
-#[commands(ping)]
+#[commands(ping, prefix)]
 struct General;
 
 #[group]
@@ -113,7 +117,11 @@ async fn main() {
         env::var("CLIENT_SECRET").expect("Expected client secret from the env");
 
     let framework = StandardFramework::new()
-        .configure(|c| c.with_whitespace(true).prefix("!!"))
+        .configure(|c| {
+            c.with_whitespace(true)
+                .prefix("")
+                .dynamic_prefix(dynamic_prefix)
+        })
         .before(log_command)
         .after(finished_command)
         .group(&GENERAL_GROUP)
@@ -220,4 +228,35 @@ async fn finished_command(_: &Context, _: &Message, cmd_name: &str, cmd_result: 
             }
         }
     }
+}
+
+fn dynamic_prefix<'fut>(
+    ctx: &'fut Context,
+    msg: &'fut Message,
+) -> Pin<Box<(dyn Future<Output = Option<String>> + Send + 'fut)>> {
+    let fut = async move {
+        println!("content: `{}`", msg.content);
+
+        if let Some(ref guild_id) = msg.guild_id {
+            let data = ctx.data.read().await;
+            let settings = data.get::<ServerSettings>().unwrap();
+
+            let prefix = settings
+                .servers
+                .get(guild_id)
+                .and_then(|server| {
+                    server
+                        .prefixes
+                        .iter()
+                        .find(|&prefix| msg.content.starts_with(prefix))
+                })
+                .map_or(DEFAULT_PREFIX, |prefix| prefix.as_str());
+
+            Some(prefix.to_owned())
+        } else {
+            Some(DEFAULT_PREFIX.to_owned())
+        }
+    };
+
+    Box::pin(fut)
 }

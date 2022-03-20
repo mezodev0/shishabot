@@ -1,6 +1,9 @@
 mod ping;
 pub use ping::*;
 
+mod prefix;
+pub use prefix::*;
+
 mod settings;
 pub use settings::*;
 

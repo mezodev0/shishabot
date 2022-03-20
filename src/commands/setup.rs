@@ -33,6 +33,7 @@ async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                 .or_insert_with(|| Server {
                     replay_channel: id1,
                     output_channel: id2,
+                    prefixes: Vec::new(),
                 });
 
             serde_json::to_string(settings).context("failed to serialize server settings")?
