@@ -235,8 +235,6 @@ fn dynamic_prefix<'fut>(
     msg: &'fut Message,
 ) -> Pin<Box<(dyn Future<Output = Option<String>> + Send + 'fut)>> {
     let fut = async move {
-        println!("content: `{}`", msg.content);
-
         if let Some(ref guild_id) = msg.guild_id {
             let data = ctx.data.read().await;
             let settings = data.get::<ServerSettings>().unwrap();
