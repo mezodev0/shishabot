@@ -62,7 +62,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 let _ = write!(content, "Current prefixes for this server: `{prefix}`");
 
                 for prefix in prefixes {
-                    let _ = write!(content, ", {prefix}");
+                    let _ = write!(content, ", `{prefix}`");
                 }
             } else {
                 let _ = write!(
@@ -120,7 +120,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     let _ = write!(content, "Current prefixes for this server: `{prefix}`");
 
                     for prefix in prefixes {
-                        let _ = write!(content, ", {prefix}");
+                        let _ = write!(content, ", `{prefix}`");
                     }
                 } else {
                     let _ = write!(
@@ -166,7 +166,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         let mut content = format!("Current prefixes for this server: `{prefix}`");
 
                         for prefix in prefixes {
-                            let _ = write!(content, ", {prefix}");
+                            let _ = write!(content, ", `{prefix}`");
                         }
 
                         msg.channel_id
