@@ -377,7 +377,11 @@ pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part> {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("failed to download mapset\nkitsu: {}\nchimu: {}", kitsu, chimu)]
+#[error(
+    "failed to download mapset\n<https://beatconnect.io> error: {}\n<https://kitsu.moe> error: {}",
+    kitsu,
+    chimu
+)]
 struct MapsetDownloadError {
     kitsu: Error,
     chimu: Error,
@@ -386,13 +390,13 @@ struct MapsetDownloadError {
 async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
     let out_path = format!("../Songs/{}", mapset_id);
 
-    let url = format!("https://kitsu.moe/d/{}", mapset_id);
-    info!("Using kitsu.moe");
+    let url = format!("https://beatconnect.io/b/{}/", mapset_id);
+
     let kitsu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
-    let url = format!("https://chimu.moe/d/{}?n=0", mapset_id);
+    let url = format!("https://kitsu.moe/d/{}", mapset_id);
 
     let chimu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
