@@ -28,7 +28,7 @@ use tokio::{
 };
 use zip::ZipArchive;
 
-use crate::ServerSettings;
+use crate::{ServerSettings, DEFAULT_PREFIX};
 
 #[derive(Deserialize)]
 pub struct UploadResponse {
@@ -60,6 +60,7 @@ pub struct Data {
     user: UserId,
     replay_params: String,
     shard: ShardMessenger,
+    server_prefixes: Vec<String>,
 }
 
 pub async fn process_replay(
@@ -74,6 +75,7 @@ pub async fn process_replay(
         let replay_user = replay_data.user;
         let replay_channel = replay_data.channel;
         let shard = replay_data.shard;
+        let server_prefixes = replay_data.server_prefixes;
 
         let mapset = match replay_file.beatmap_hash.as_deref() {
             Some(hash) => match osu.beatmap().checksum(hash).await {
@@ -150,7 +152,7 @@ pub async fn process_replay(
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
 
-        if replay_data.replay_params.contains("!!start") {
+        if check_server_prefix(server_prefixes, &replay_data.replay_params) {
             let params = replay_data.replay_params.split(" ").collect::<Vec<&str>>();
             command.args(["-start", params[1]]);
             if params.len() == 3 {
@@ -282,6 +284,13 @@ pub async fn parse_attachment_replay(
             .map(|s| s.output_channel)
     };
 
+    let prefixes = {
+        let data = ctx_data.read().await;
+        let settings = data.get::<ServerSettings>().unwrap();
+
+        settings.servers.get(&guild_id).map(|s| s.prefixes.clone())
+    };
+
     let output_channel = match channel_opt {
         Some(channel_id) => channel_id,
         None => return Ok(AttachmentParseSuccess::NothingToDo),
@@ -305,6 +314,7 @@ pub async fn parse_attachment_replay(
         user: msg.author.id,
         replay_params: msg.content.to_string(),
         shard: shard_messenger,
+        server_prefixes: prefixes.unwrap_or_else(|| vec![DEFAULT_PREFIX.to_string()]),
     };
 
     if let Err(why) = sender.send(replay_data) {
@@ -605,4 +615,14 @@ async fn get_title() -> Result<String> {
         .ok_or_else(|| anyhow!("expected at least 5 words in danser log line `{}`", line))?;
 
     Ok(map_without_artist.to_string())
+}
+
+fn check_server_prefix(server_prefixes: Vec<String>, params: &String) -> bool {
+    server_prefixes.iter().any(|p| {
+        if params.starts_with(p) {
+            params[p.len()..].starts_with("start")
+        } else {
+            false
+        }
+    })
 }
