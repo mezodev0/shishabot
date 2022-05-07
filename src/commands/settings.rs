@@ -63,8 +63,10 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                         **Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n\
                         **Background**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n\
                         **Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\n\n\
-                        **Gameplay**\n`pp counter decimals`: {}\n`hit error decimals`: {}\n\
-                        `aim error meter`: {}\n`aim error meter ur decimals`: {}",
+                        **PP Counter**\n`pp counter decimals`: {}\n\n\
+                        **Hit Error Meter**\n`hit error decimals`: {}\n\n\
+                        **Aim Error Meter**\n`show aim error meter`: {}\n`aim error meter ur decimals`: {}\n\n\
+                        **Hit Counter**\n`show hit counter`: {}\n`show sliderbreaks`: {}",
                         settings.skin.current_skin,
                         settings.skin.cursor.scale,
                         if settings.cursor.cursor_ripples {
@@ -93,6 +95,16 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                             "off"
                         },
                         settings.gameplay.aim_error_meter.unstable_rate_decimals,
+                        if settings.gameplay.hit_counter.show {
+                            "on"
+                        } else {
+                            "off"
+                        },
+                        if settings.gameplay.hit_counter.show_sliderbreaks {
+                            "on"
+                        } else {
+                            "off"
+                        }
                     ))
                     .color(color)
                     .footer(|f| f.text("To edit your settings type !!settings [setting] [value] | The setting name is the same as in the embed, spaces are replaced with '_'"))
@@ -286,8 +298,16 @@ async fn edit_setting(
 
             settings.gameplay.pp_counter.decimals = value_as_number;
         }
-        "aim_error_meter" => {
+        "show_aim_error_meter" | "aim_error_meter" => {
             settings.gameplay.aim_error_meter.show =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "show_hit_counter" | "hit_counter" => {
+            settings.gameplay.hit_counter.show =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "show_sliderbreaks" => {
+            settings.gameplay.hit_counter.show =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
         _ => {}

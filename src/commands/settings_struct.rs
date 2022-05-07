@@ -221,6 +221,8 @@ pub struct HitCounter {
     pub vertical: bool,
     #[serde(rename = "Show300")]
     pub show300: bool,
+    #[serde(rename = "ShowSliderBreaks")]
+    pub show_sliderbreaks: bool,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -687,8 +689,10 @@ pub struct BlendWeights {
 pub struct StrainGraph {
     pub show: bool,
     pub opacity: i64,
-    pub x_position: i64,
-    pub y_position: i64,
+    #[serde(rename = "XPosition")]
+    pub xposition: i64,
+    #[serde(rename = "YPosition")]
+    pub yposition: i64,
     pub align: String,
     pub width: i64,
     pub height: i64,
