@@ -307,7 +307,7 @@ async fn edit_setting(
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
         "show_sliderbreaks" => {
-            settings.gameplay.hit_counter.show =
+            settings.gameplay.hit_counter.show_sliderbreaks =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
         _ => {}
