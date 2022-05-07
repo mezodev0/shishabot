@@ -3,7 +3,7 @@ use serenity::{
     builder::ParseValue,
     client::Context as SerenityContext,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::{channel::Message, id::UserId},
     utils::Colour,
 };
 use tokio::fs;
@@ -13,7 +13,14 @@ use crate::commands::Settings;
 #[command]
 #[description = "Creates your very own settings file for you to customize!"]
 async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
-    let author = msg.author.id;
+    let author: UserId;
+
+    if msg.mentions.len() != 0 {
+        author = msg.mentions[0].id;
+    } else {
+        author = msg.author.id;
+    }
+
     let from = "../danser/settings/default.json";
     let to = format!("../danser/settings/{}.json", author);
 
@@ -27,6 +34,41 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let file_content = tokio::fs::read_to_string(settings_path).await?;
     let mut settings: Settings = serde_json::from_str(&file_content)?;
     let color = get_user_role_color(msg, ctx).await?;
+
+    if msg.content.split(" ").count() != 1
+        && msg.content.split(" ").collect::<Vec<&str>>()[1] == "copy"
+    {
+        if msg.mentions.len() == 0 {
+            msg.reply(
+                &ctx,
+                "You need to mention someone in order to steal their settings!",
+            )
+            .await?;
+            return Ok(());
+        }
+
+        let copy_from = msg.mentions[0].id;
+        if let Err(why) =
+            tokio::fs::remove_file(format!("../danser/settings/{}.json", msg.author.id)).await
+        {
+            msg.reply(
+                &ctx,
+                "Oops! I couldn't find your file! Please type !!settings to resolve this issue.",
+            )
+            .await?;
+            info!("User {} had error: {}", msg.author.name, why);
+        }
+
+        tokio::fs::copy(
+            format!("../danser/settings/{}.json", copy_from),
+            format!("../danser/settings/{}.json", msg.author.id),
+        )
+        .await?;
+
+        msg.reply(&ctx, "Copied settings!").await?;
+        return Ok(());
+    }
+
     if msg.content.split(" ").count() == 3 {
         let new_settings = msg.content.split(" ").collect::<Vec<&str>>();
 
@@ -47,6 +89,8 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
         return Ok(());
     }
 
+    let author_name = author.to_user(&ctx).await?.name;
+
     msg.channel_id
         .send_message(&ctx, |m| {
             m.reference_message((msg.channel_id, msg.id))
@@ -57,7 +101,7 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                         .parse(ParseValue::Roles)
                 });
             m.embed(|e| {
-                e.title(format!("Settings for {}", msg.author.name))
+                e.title(format!("Settings for {}", author_name))
                     .description(format!(
                         "**Skin**\n`skin`: {}\n\n\
                         **Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n\
