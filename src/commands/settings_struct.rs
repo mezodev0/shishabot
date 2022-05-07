@@ -113,6 +113,7 @@ pub struct Gameplay {
     pub play_username: String,
     #[serde(rename = "UseLazerPP")]
     pub use_lazer_pp: bool,
+    pub strain_graph: StrainGraph,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -679,4 +680,18 @@ pub struct BlendWeights {
     #[serde(rename = "AutoWeightsID")]
     pub auto_weights_id: i64,
     pub gauss_weights_mult: f64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct StrainGraph {
+    pub show: bool,
+    pub opacity: i64,
+    pub x_position: i64,
+    pub y_position: i64,
+    pub align: String,
+    pub width: i64,
+    pub height: i64,
+    pub bg_color: Color,
+    pub fg_color: Color,
 }
