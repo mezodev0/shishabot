@@ -110,7 +110,8 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                         **PP Counter**\n`pp counter decimals`: {}\n\n\
                         **Hit Error Meter**\n`hit error decimals`: {}\n\n\
                         **Aim Error Meter**\n`show aim error meter`: {}\n`aim error meter ur decimals`: {}\n\n\
-                        **Hit Counter**\n`show hit counter`: {}\n`show sliderbreaks`: {}",
+                        **Hit Counter**\n`show hit counter`: {}\n`show sliderbreaks`: {}\n\n\
+                        **Strain Graph**\n`show strain graph`: {}",
                         settings.skin.current_skin,
                         settings.skin.cursor.scale,
                         if settings.cursor.cursor_ripples {
@@ -145,6 +146,11 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                             "off"
                         },
                         if settings.gameplay.hit_counter.show_sliderbreaks {
+                            "on"
+                        } else {
+                            "off"
+                        },
+                        if settings.gameplay.strain_graph.show {
                             "on"
                         } else {
                             "off"
@@ -352,6 +358,10 @@ async fn edit_setting(
         }
         "show_sliderbreaks" => {
             settings.gameplay.hit_counter.show_sliderbreaks =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "show_strain_graph" | "strain_graph" => {
+            settings.gameplay.strain_graph.show =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
         _ => {}
