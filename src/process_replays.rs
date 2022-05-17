@@ -20,7 +20,7 @@ use serenity::{
     prelude::{RwLock, TypeMap},
 };
 use tokio::{
-    fs::{self, File},
+    fs::{self, DirEntry, File},
     io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -473,14 +473,18 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         .await
         .with_context(|| format!("failed to read items dir at `{}`", items_dir))?;
 
+    let mut correct_items: Vec<DirEntry> = Vec::new();
+
+    while let Some(entry) = items.next_entry().await? {
+        if entry.file_name().to_str().unwrap().ends_with(".osu") {
+            correct_items.push(entry);
+        }
+    }
+
     let mut max_similarity: f32 = 0.0;
     let mut final_file_name = String::new();
 
-    while let Some(item) = items
-        .next_entry()
-        .await
-        .context("failed to read dir entry")?
-    {
+    for item in correct_items {
         let file_name = item.file_name();
         let item_file_name = file_name.to_string_lossy();
 
