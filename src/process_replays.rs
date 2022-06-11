@@ -209,6 +209,7 @@ pub async fn process_replay(
                 {
                     warn!("failed to send message: {}", err);
                 }
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
                 continue;
             }
         };
@@ -411,14 +412,14 @@ struct MapsetDownloadError {
 async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
     let out_path = format!("../Songs/{}", mapset_id);
 
-    let url = format!("https://chimu.moe/d/{}", mapset_id);
+    let url = format!("https://kitsu.moe/d/{}", mapset_id);
 
     let kitsu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
     debug!("Using secondary mirror");
-    let url = format!("https://kitsu.moe/d/{}", mapset_id);
+    let url = format!("https://chimu.moe/d/{}", mapset_id);
 
     let chimu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
