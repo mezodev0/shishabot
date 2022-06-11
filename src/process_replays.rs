@@ -198,6 +198,17 @@ pub async fn process_replay(
             Ok(osu_file) => osu_file,
             Err(why) => {
                 warn!("{:?}", why.context("failed to get map_osu_file"));
+                if let Err(err) = replay_channel
+                    .send_message(&http, |m| {
+                        m.content(format!(
+                            "<@{}>, the version the mirrors do not match the replay",
+                            replay_user
+                        ))
+                    })
+                    .await
+                {
+                    warn!("failed to send message: {}", err);
+                }
                 continue;
             }
         };
@@ -388,7 +399,7 @@ pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part> {
 
 #[derive(Debug, thiserror::Error)]
 #[error(
-    "failed to download mapset\n<https://beatconnect.io> error: {}\n<https://kitsu.moe> error: {}",
+    "failed to download mapset\n<https://chimu.moe> error: {}\n<https://kitsu.moe> error: {}",
     kitsu,
     chimu
 )]
@@ -400,12 +411,13 @@ struct MapsetDownloadError {
 async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
     let out_path = format!("../Songs/{}", mapset_id);
 
-    let url = format!("https://beatconnect.io/b/{}/", mapset_id);
+    let url = format!("https://chimu.moe/d/{}", mapset_id);
 
     let kitsu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
+    debug!("Using secondary mirror");
     let url = format!("https://kitsu.moe/d/{}", mapset_id);
 
     let chimu = match download_mapset_(url, &out_path, client).await {
