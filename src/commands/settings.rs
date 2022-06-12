@@ -1,9 +1,11 @@
+#![allow(clippy::manual_range_contains)]
+
 use anyhow::{Context, Error, Result};
 use serenity::{
     builder::ParseValue,
     client::Context as SerenityContext,
     framework::standard::{macros::command, CommandResult},
-    model::{channel::Message, id::UserId},
+    model::channel::Message,
     utils::Colour,
 };
 use tokio::fs;
@@ -13,13 +15,11 @@ use crate::commands::Settings;
 #[command]
 #[description = "Creates your very own settings file for you to customize!"]
 async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
-    let author: UserId;
-
-    if msg.mentions.len() != 0 {
-        author = msg.mentions[0].id;
+    let author = if msg.mentions.is_empty() {
+        msg.author.id
     } else {
-        author = msg.author.id;
-    }
+        msg.mentions[0].id
+    };
 
     let from = "../danser/settings/default.json";
     let to = format!("../danser/settings/{}.json", author);
@@ -35,15 +35,12 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let mut settings: Settings = serde_json::from_str(&file_content)?;
     let color = get_user_role_color(msg, ctx).await?;
 
-    if msg.content.split(" ").count() != 1
-        && msg.content.split(" ").collect::<Vec<&str>>()[1] == "copy"
+    if msg.content.split(' ').count() != 1
+        && msg.content.split(' ').collect::<Vec<&str>>()[1] == "copy"
     {
-        if msg.mentions.len() == 0 {
-            msg.reply(
-                &ctx,
-                "You need to mention someone in order to steal their settings!",
-            )
-            .await?;
+        if msg.mentions.is_empty() {
+            let content = "You need to mention someone in order to steal their settings!";
+            msg.reply(&ctx, content).await?;
             return Ok(());
         }
 
@@ -69,10 +66,10 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
         return Ok(());
     }
 
-    if msg.content.split(" ").count() == 3 {
-        let new_settings = msg.content.split(" ").collect::<Vec<&str>>();
+    if msg.content.split(' ').count() == 3 {
+        let new_settings = msg.content.split(' ').collect::<Vec<&str>>();
 
-        match edit_setting(&mut settings, &new_settings[1], &new_settings[2], &msg).await {
+        match edit_setting(&mut settings, new_settings[1], new_settings[2], msg).await {
             Ok(_) => {
                 msg.reply(&ctx, "Edited setting successfully!").await?;
             }

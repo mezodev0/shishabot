@@ -44,6 +44,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 }
             }
 
+            #[allow(clippy::unnecessary_to_owned)]
             let mut prefixes = prefixes.to_owned().into_iter();
 
             let edited_settings =

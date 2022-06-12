@@ -153,7 +153,7 @@ pub async fn process_replay(
             .arg(format!("-out={}", filename));
 
         if check_server_prefix(server_prefixes, &replay_data.replay_params) {
-            let params = replay_data.replay_params.split(" ").collect::<Vec<&str>>();
+            let params = replay_data.replay_params.split(' ').collect::<Vec<&str>>();
             command.args(["-start", params[1]]);
             if params.len() == 3 {
                 command.args(["-end", params[2]]);
@@ -634,12 +634,8 @@ async fn get_title() -> Result<String> {
     Ok(map_without_artist.to_string())
 }
 
-fn check_server_prefix(server_prefixes: Vec<String>, params: &String) -> bool {
-    server_prefixes.iter().any(|p| {
-        if params.starts_with(p) {
-            params[p.len()..].starts_with("start")
-        } else {
-            false
-        }
-    })
+fn check_server_prefix(server_prefixes: Vec<String>, params: &str) -> bool {
+    server_prefixes
+        .iter()
+        .any(|p| params.starts_with(p) && params[p.len()..].starts_with("start"))
 }
