@@ -1,11 +1,8 @@
-use std::{env, io::Cursor, mem, path::Path, sync::Arc, time::Duration};
+use std::{env, io::Cursor, mem, sync::Arc, thread};
 
 use anyhow::{Context, Error, Result};
 use osu_db::Replay;
-use reqwest::{
-    multipart::{Form, Part},
-    Client,
-};
+use reqwest::Client;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{Beatmap as Map, Beatmapset, GameMode, GameMods, Osu};
 use serde::Deserialize;
@@ -21,14 +18,17 @@ use serenity::{
 };
 use tokio::{
     fs::{self, DirEntry, File},
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::AsyncWriteExt,
     process::Command,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
-    time,
 };
 use zip::ZipArchive;
 
 use crate::{ServerSettings, DEFAULT_PREFIX};
+
+#[path = "./streamable_wrapper.rs"]
+mod streamable_api;
+use streamable_api::StreamableApi;
 
 #[derive(Deserialize)]
 pub struct UploadResponse {
@@ -230,7 +230,7 @@ pub async fn process_replay(
 
         info!("Started upload to streamable");
 
-        let shortcode = match upload(filepath, streamable_title, &client).await {
+        let uploadresponse = match upload(filename.to_string(), streamable_title, filepath).await {
             Ok(response) => response,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
@@ -250,12 +250,21 @@ pub async fn process_replay(
             }
         };
 
-        time::sleep(Duration::from_secs(5)).await;
+        loop {
+            let status = check_status_code(uploadresponse.shortcode.clone())
+                .await
+                .unwrap();
+            thread::sleep(std::time::Duration::from_secs(5));
+            if status == 2 {
+                break;
+            }
+        }
+
         info!("Finished upload to streamable");
 
         let content = format!(
             "<@{}> your replay is ready! https://streamable.com/{}",
-            replay_user, shortcode.shortcode
+            replay_user, uploadresponse.shortcode
         );
 
         let msg_fut = replay_channel.send_message(&http, |m| m.content(content));
@@ -336,66 +345,35 @@ pub async fn parse_attachment_replay(
     Ok(AttachmentParseSuccess::BeingProcessed)
 }
 
-pub async fn upload(filepath: String, title: String, client: &Client) -> Result<UploadResponse> {
-    let username =
-        env::var("STREAMABLE_USERNAME").context("missing env variable `STREAMABLE_USERNAME`")?;
-    let password =
-        env::var("STREAMABLE_PASSWORD").context("missing env variable `STREAMABLE_PASSWORD`")?;
+async fn upload(filename: String, title: String, filepath: String) -> Result<UploadResponse> {
+    let api = get_api().await?;
+    let response = api.upload_video(filename, Some(title), filepath).await?;
 
-    let endpoint = "https://api.streamable.com/upload";
+    let json = response.json::<UploadResponse>().await?;
+    Ok(json)
+}
 
-    let file = file(&filepath)
-        .await
-        .with_context(|| format!("failed to load file for path `{}`", filepath))?;
+async fn check_status_code(shortcode: String) -> Result<i8, Error> {
+    let api = get_api().await?;
+    let statusresponse = api.check_status(shortcode).await?;
+    Ok(statusresponse.status)
+}
 
-    let form = Form::new().part("file", file).text("title", title);
-
-    let resp = client
-        .post(endpoint)
-        .basic_auth(username, Some(password))
-        .multipart(form)
-        .send()
-        .await
-        .context("failed to await response")?;
-
-    let response_as_json = resp.json::<UploadResponse>().await?;
-
-    Ok(response_as_json)
+async fn get_api() -> Result<StreamableApi, Error> {
+    let api = StreamableApi::new(
+        env::var("STREAMABLE_USERNAME")
+            .context("missing env variable `STREAMABLE_USERNAME`")
+            .unwrap(),
+        env::var("STREAMABLE_PASSWORD")
+            .context("missing env variable `STREAMABLE_PASSWORD`")
+            .unwrap(),
+    )
+    .await?;
+    Ok(api)
 }
 
 async fn path_exists(path: String) -> bool {
     fs::metadata(path).await.is_ok()
-}
-
-pub async fn file<T: AsRef<Path>>(path: T) -> Result<Part> {
-    let path = path.as_ref();
-
-    let file_name = path
-        .file_name()
-        .map(|filename| filename.to_string_lossy().into_owned());
-
-    let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
-    let mime = mime_guess::from_ext(ext).first_or_octet_stream();
-
-    let mut file = File::open(path)
-        .await
-        .with_context(|| format!("failed to open file `{}`", path.display()))?;
-
-    let mut bytes = Vec::new();
-
-    file.read_to_end(&mut bytes)
-        .await
-        .with_context(|| format!("failed to read file `{}`", path.display()))?;
-
-    let field = Part::bytes(bytes).mime_str(mime.essence_str())?;
-
-    let part = if let Some(file_name) = file_name {
-        field.file_name(file_name)
-    } else {
-        field
-    };
-
-    Ok(part)
 }
 
 #[derive(Debug, thiserror::Error)]
