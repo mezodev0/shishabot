@@ -1,4 +1,4 @@
-use std::{env, io::Cursor, mem, sync::Arc, thread};
+use std::{env, io::Cursor, mem, sync::Arc};
 
 use anyhow::{Context, Error, Result};
 use osu_db::Replay;
@@ -24,11 +24,7 @@ use tokio::{
 };
 use zip::ZipArchive;
 
-use crate::{ServerSettings, DEFAULT_PREFIX};
-
-#[path = "./streamable_wrapper.rs"]
-mod streamable_api;
-use streamable_api::StreamableApi;
+use crate::{streamable_wrapper::StreamableApi, ServerSettings, DEFAULT_PREFIX};
 
 #[derive(Deserialize)]
 pub struct UploadResponse {
@@ -230,31 +226,29 @@ pub async fn process_replay(
 
         info!("Started upload to streamable");
 
-        let uploadresponse = match upload(filename.to_string(), streamable_title, filepath).await {
+        let uploadresponse = match upload(filename.to_string(), streamable_title, &filepath).await {
             Ok(response) => response,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
+
                 if let Err(err) = replay_channel
                     .send_message(&http, |m| {
-                        m.content(format!(
-                            "<@{}>, failed to upload to streamable",
-                            replay_user
-                        ))
+                        m.content(format!("<@{replay_user}>, failed to upload to streamable"))
                     })
                     .await
                 {
                     warn!("Failed to send error message to discord: {}", err);
                 }
+
                 shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
                 continue;
             }
         };
 
         loop {
-            let status = check_status_code(uploadresponse.shortcode.clone())
-                .await
-                .unwrap();
-            thread::sleep(std::time::Duration::from_secs(5));
+            let status = check_status_code(&uploadresponse.shortcode).await.unwrap();
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
             if status == 2 {
                 break;
             }
@@ -345,17 +339,18 @@ pub async fn parse_attachment_replay(
     Ok(AttachmentParseSuccess::BeingProcessed)
 }
 
-async fn upload(filename: String, title: String, filepath: String) -> Result<UploadResponse> {
+async fn upload(filename: String, title: String, filepath: &str) -> Result<UploadResponse> {
     let api = get_api().await?;
     let response = api.upload_video(filename, Some(title), filepath).await?;
-
     let json = response.json::<UploadResponse>().await?;
+
     Ok(json)
 }
 
-async fn check_status_code(shortcode: String) -> Result<i8, Error> {
+async fn check_status_code(shortcode: &str) -> Result<i8, Error> {
     let api = get_api().await?;
     let statusresponse = api.check_status(shortcode).await?;
+
     Ok(statusresponse.status)
 }
 
@@ -378,7 +373,9 @@ async fn path_exists(path: String) -> bool {
 
 #[derive(Debug, thiserror::Error)]
 #[error(
-    "failed to download mapset\n<https://chimu.moe> error: {}\n<https://kitsu.moe> error: {}",
+    "failed to download mapset\n\
+    <https://chimu.moe> error: {}\n\
+    <https://kitsu.moe> error: {}",
     kitsu,
     chimu
 )]
@@ -389,7 +386,6 @@ struct MapsetDownloadError {
 
 async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
     let out_path = format!("../Songs/{}", mapset_id);
-
     let url = format!("https://kitsu.moe/d/{}", mapset_id);
 
     let kitsu = match download_mapset_(url, &out_path, client).await {

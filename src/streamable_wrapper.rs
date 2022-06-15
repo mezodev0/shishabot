@@ -1,16 +1,16 @@
 use std::path::Path;
 
-use anyhow::{Context, Error};
+use anyhow::{Context, Result};
 use base64::encode;
 use reqwest::{
-    self,
-    header::{self, HeaderMap},
+    header::{HeaderMap, HeaderValue, AUTHORIZATION},
     multipart::{self, Part},
     Client, Response,
 };
 use serde::Deserialize;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+
 pub struct StreamableApi {
     pub client: Client,
 }
@@ -21,70 +21,52 @@ pub struct StatusResponse {
 }
 
 impl StreamableApi {
-    pub async fn new(username: String, password: String) -> reqwest::Result<Self> {
+    pub async fn new(username: String, password: String) -> Result<Self> {
         let mut headers = HeaderMap::new();
-        headers.insert(
-            header::AUTHORIZATION,
-            header::HeaderValue::from_str(
-                &format!("Basic {}", encode(format!("{}:{}", username, password))).as_str(),
-            )
-            .unwrap(),
-        );
+        let value = format!("Basic {}", encode(format!("{username}:{password}")));
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(&value)?);
         let client = Client::builder().default_headers(headers).build()?;
 
         Ok(Self { client })
     }
+
     pub async fn upload_video(
         &self,
         filename: String,
         title: Option<String>,
-        filepath: String,
-    ) -> Result<Response, reqwest::Error> {
-        let mut video_title = filename;
-        if title != None {
-            video_title = title.unwrap();
-        }
+        filepath: &str,
+    ) -> Result<Response> {
+        let url = "https://api.streamable.com/upload";
+        let video_title = title.unwrap_or(filename);
+        let resp = self.api_request(url, video_title, filepath).await?;
 
-        let resp = self
-            .api_request(
-                "https://api.streamable.com/upload".to_string(),
-                video_title,
-                filepath,
-            )
-            .await?;
         Ok(resp)
     }
 
-    pub async fn check_status(&self, shortcode: String) -> Result<StatusResponse, Error> {
-        let url = format!("https://api.streamable.com/videos/{}", shortcode);
-        let resp = self.client.get(url).send().await?.text().await?;
-        let custom_resp: StatusResponse = serde_json::from_str(&resp)?;
+    pub async fn check_status(&self, shortcode: &str) -> Result<StatusResponse> {
+        let url = format!("https://api.streamable.com/videos/{shortcode}");
+        let resp = self.client.get(url).send().await?.bytes().await?;
+        let custom_resp: StatusResponse = serde_json::from_slice(&resp)?;
+
         Ok(custom_resp)
     }
 
-    pub async fn api_request(
-        &self,
-        url: String,
-        data: String,
-        files: String,
-    ) -> Result<Response, reqwest::Error> {
-        // let mut data_params = HashMap::new();
-        // data_params.insert("title", data);
-
+    pub async fn api_request(&self, url: &str, data: String, files: &str) -> Result<Response> {
         let file = readfile(&files)
             .await
-            .with_context(|| format!("failed to load file for path `{}`", files))
-            .unwrap();
+            .with_context(|| format!("failed to load file for path `{files}`"))?;
 
         let form = multipart::Form::new()
             .part("file", file)
             .text("title", data);
+
         let resp = self.client.post(url).multipart(form).send().await?;
+
         Ok(resp)
     }
 }
 
-pub async fn readfile<T: AsRef<Path>>(path: T) -> Result<Part, Error> {
+pub async fn readfile<T: AsRef<Path>>(path: T) -> Result<Part> {
     let path = path.as_ref();
 
     let file_name = path

@@ -31,12 +31,12 @@ use serenity::{
 use tokio::sync::mpsc;
 
 mod commands;
-use commands::*;
-
-mod process_replays;
-use process_replays::*;
-
 mod logging;
+mod process_replays;
+mod streamable_wrapper;
+
+use commands::*;
+use process_replays::*;
 
 const DEFAULT_PREFIX: &str = "!!";
 
