@@ -5,7 +5,6 @@ use osu_db::Replay;
 use reqwest::Client;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{Beatmap as Map, Beatmapset, GameMode, GameMods, Osu};
-use serde::Deserialize;
 use serenity::{
     client::bridge::gateway::ShardMessenger,
     http::Http,
@@ -21,16 +20,11 @@ use tokio::{
     io::AsyncWriteExt,
     process::Command,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    time,
 };
 use zip::ZipArchive;
 
 use crate::{streamable_wrapper::StreamableApi, ServerSettings, DEFAULT_PREFIX};
-
-#[derive(Deserialize)]
-pub struct UploadResponse {
-    pub shortcode: String,
-    pub status: i8,
-}
 
 pub enum AttachmentParseSuccess {
     NothingToDo,
@@ -65,6 +59,19 @@ pub async fn process_replay(
     http: Arc<Http>,
     client: Client,
 ) {
+    let username = env::var("STREAMABLE_USERNAME")
+        .context("missing env variable `STREAMABLE_USERNAME`")
+        .unwrap();
+
+    let password = env::var("STREAMABLE_PASSWORD")
+        .context("missing env variable `STREAMABLE_PASSWORD`")
+        .unwrap();
+
+    let streamable = StreamableApi::new(username, password)
+        .await
+        .context("failed to create streamable api wrapper")
+        .unwrap();
+
     while let Some(replay_data) = receiver.recv().await {
         let replay_path = replay_data.path;
         let replay_file = replay_data.replay;
@@ -226,7 +233,7 @@ pub async fn process_replay(
 
         info!("Started upload to streamable");
 
-        let uploadresponse = match upload(filename.to_string(), streamable_title, &filepath).await {
+        let uploadresponse = match streamable.upload_video(streamable_title, &filepath).await {
             Ok(response) => response,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
@@ -246,8 +253,12 @@ pub async fn process_replay(
         };
 
         loop {
-            let status = check_status_code(&uploadresponse.shortcode).await.unwrap();
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            let status = streamable
+                .check_status_code(&uploadresponse.shortcode)
+                .await
+                .unwrap();
+
+            time::sleep(std::time::Duration::from_secs(5)).await;
 
             if status == 2 {
                 break;
@@ -337,34 +348,6 @@ pub async fn parse_attachment_replay(
     }
 
     Ok(AttachmentParseSuccess::BeingProcessed)
-}
-
-async fn upload(filename: String, title: String, filepath: &str) -> Result<UploadResponse> {
-    let api = get_api().await?;
-    let response = api.upload_video(filename, Some(title), filepath).await?;
-    let json = response.json::<UploadResponse>().await?;
-
-    Ok(json)
-}
-
-async fn check_status_code(shortcode: &str) -> Result<i8, Error> {
-    let api = get_api().await?;
-    let statusresponse = api.check_status(shortcode).await?;
-
-    Ok(statusresponse.status)
-}
-
-async fn get_api() -> Result<StreamableApi, Error> {
-    let api = StreamableApi::new(
-        env::var("STREAMABLE_USERNAME")
-            .context("missing env variable `STREAMABLE_USERNAME`")
-            .unwrap(),
-        env::var("STREAMABLE_PASSWORD")
-            .context("missing env variable `STREAMABLE_PASSWORD`")
-            .unwrap(),
-    )
-    .await?;
-    Ok(api)
 }
 
 async fn path_exists(path: String) -> bool {

@@ -20,6 +20,12 @@ pub struct StatusResponse {
     pub status: i8,
 }
 
+#[derive(Deserialize)]
+pub struct UploadResponse {
+    pub shortcode: String,
+    pub status: i8,
+}
+
 impl StreamableApi {
     pub async fn new(username: String, password: String) -> Result<Self> {
         let mut headers = HeaderMap::new();
@@ -30,25 +36,20 @@ impl StreamableApi {
         Ok(Self { client })
     }
 
-    pub async fn upload_video(
-        &self,
-        filename: String,
-        title: Option<String>,
-        filepath: &str,
-    ) -> Result<Response> {
+    pub async fn upload_video(&self, title: String, filepath: &str) -> Result<UploadResponse> {
         let url = "https://api.streamable.com/upload";
-        let video_title = title.unwrap_or(filename);
-        let resp = self.api_request(url, video_title, filepath).await?;
+        let resp = self.api_request(url, title, filepath).await?;
+        let json = resp.json::<UploadResponse>().await?;
 
-        Ok(resp)
+        Ok(json)
     }
 
-    pub async fn check_status(&self, shortcode: &str) -> Result<StatusResponse> {
+    pub async fn check_status_code(&self, shortcode: &str) -> Result<i8> {
         let url = format!("https://api.streamable.com/videos/{shortcode}");
         let resp = self.client.get(url).send().await?.bytes().await?;
         let custom_resp: StatusResponse = serde_json::from_slice(&resp)?;
 
-        Ok(custom_resp)
+        Ok(custom_resp.status)
     }
 
     pub async fn api_request(&self, url: &str, data: String, files: &str) -> Result<Response> {
