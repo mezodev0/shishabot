@@ -263,8 +263,8 @@ pub async fn process_replay(
                     continue;
                 }
             }
-            _ = time::sleep(Duration::from_secs(120)) => {
-                warn!("Failed to upload video within 2 minutes, abort and go to next...");
+            _ = time::sleep(Duration::from_secs(300)) => {
+                warn!("Failed to upload video within 5 minutes, abort and go to next...");
                 continue;
             }
         }
