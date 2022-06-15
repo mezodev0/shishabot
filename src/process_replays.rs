@@ -1,4 +1,4 @@
-use std::{env, io::Cursor, mem, sync::Arc};
+use std::{env, io::Cursor, mem, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error, Result};
 use osu_db::Replay;
@@ -20,7 +20,7 @@ use tokio::{
     io::AsyncWriteExt,
     process::Command,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
-    time,
+    time::{self, interval, MissedTickBehavior},
 };
 use zip::ZipArchive;
 
@@ -233,8 +233,8 @@ pub async fn process_replay(
 
         info!("Started upload to streamable");
 
-        let uploadresponse = match streamable.upload_video(streamable_title, &filepath).await {
-            Ok(response) => response,
+        let shortcode = match streamable.upload_video(streamable_title, &filepath).await {
+            Ok(response) => response.shortcode,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
 
@@ -252,25 +252,27 @@ pub async fn process_replay(
             }
         };
 
-        loop {
-            let status = streamable
-                .check_status_code(&uploadresponse.shortcode)
-                .await
-                .unwrap();
+        tokio::select! {
+            res = await_video_ready(&streamable, &shortcode) => {
+                if res.is_err() {
+                    warn!(
+                        "Got too many errors while trying to retrieve video's ready status, \
+                        abort and go to next..."
+                    );
 
-            time::sleep(std::time::Duration::from_secs(5)).await;
-
-            if status == 2 {
-                break;
+                    continue;
+                }
+            }
+            _ = time::sleep(Duration::from_secs(120)) => {
+                warn!("Failed to upload video within 2 minutes, abort and go to next...");
+                continue;
             }
         }
 
         info!("Finished upload to streamable");
 
-        let content = format!(
-            "<@{}> your replay is ready! https://streamable.com/{}",
-            replay_user, uploadresponse.shortcode
-        );
+        let content =
+            format!("<@{replay_user}> your replay is ready! https://streamable.com/{shortcode}");
 
         let msg_fut = replay_channel.send_message(&http, |m| m.content(content));
 
@@ -279,6 +281,40 @@ pub async fn process_replay(
         if let Err(why) = msg_fut.await {
             let err = Error::new(why).context("failed to send streamable link");
             warn!("{:?}", err);
+        }
+    }
+}
+
+async fn await_video_ready(streamable: &StreamableApi, shortcode: &str) -> Result<(), ()> {
+    let mut interval = interval(Duration::from_secs(5));
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    let mut attempt: u8 = 0;
+    const ATTEMPTS: u8 = 10;
+
+    loop {
+        interval.tick().await;
+
+        let status = match streamable.check_status_code(shortcode).await {
+            Ok(status) => {
+                attempt = 0;
+
+                status
+            }
+            Err(why) => {
+                warn!("failed to get status code on attempt #{attempt}/{ATTEMPTS}: {why}");
+                attempt += 1;
+
+                if attempt == ATTEMPTS {
+                    return Err(());
+                }
+
+                continue;
+            }
+        };
+
+        if status == 2 {
+            return Ok(());
         }
     }
 }
