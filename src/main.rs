@@ -243,11 +243,15 @@ fn dynamic_prefix<'fut>(
                 .servers
                 .get(guild_id)
                 .and_then(|server| {
-                    server.prefixes.iter().reduce(|longest, prefix| {
-                        if prefix.len() > longest.len() && msg.content.starts_with(prefix) {
-                            prefix
-                        } else {
+                    server.prefixes.iter().fold(None, |longest, prefix| {
+                        if !msg.content.starts_with(prefix)
+                            || longest
+                                .map(|longest: &String| prefix.len() <= longest.len())
+                                .is_some()
+                        {
                             longest
+                        } else {
+                            Some(prefix)
                         }
                     })
                 })
