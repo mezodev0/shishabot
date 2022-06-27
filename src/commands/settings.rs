@@ -13,7 +13,39 @@ use tokio::fs;
 use crate::commands::Settings;
 
 #[command]
-#[description = "Creates your very own settings file for you to customize!"]
+#[description = "**Skin**
+!!settings skin `[index]` - changes the skin
+
+**Cursor**
+!!settings cursor_size `[0.1 - 2.0]` - changes the cursor size
+!!settings cursor_ripple `[on/off]` - enable/disable cursor ripple
+
+**Background**
+!!settings storyboard `[on/off]` - enable/disable storyboard
+!!settings background_video `[on/off]` - enable/disable background video
+!!settings dim `[0.0 - 1.0]` - change the background dim
+
+**Audio**
+!!settings music_volume `[0 - 100]` - change the music volume
+!!settings hitsound_volume `[0 - 100]` - change the hitsound volume
+
+**PP Counter**
+!!settings pp_counter_decimals `[0 - 3]` - changes the amount of decimals displayed on the pp counter
+
+
+**Hit Error Meter**
+!!settings hit_error_decimals `[0 - 3]` - changes the amount of decimals displayed on the hit error meter
+
+**Aim Error Meter**
+!!settings show_aim_error_meter `[on/off]` - enable/disable the aim error meter
+!!settings aim_error_meter_ur_decimals `[0 - 3]` - changes the amount of ur decimals displayed on the aim error meter
+
+**Hit Counter**
+!!settings show_hit_counter `[on/off]` - enable/disable the hit counter
+!!settings show_sliderbreaks `[on/off]` - adds/removes a sliderbreak counter to the hit counter
+
+**Strain Graph**
+!!settings show_strain_graph`[on/off]` - enable/disable the strain graph"]
 async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let author = if msg.mentions.is_empty() {
         msg.author.id
@@ -199,19 +231,19 @@ async fn get_user_role_color(msg: &Message, ctx: &SerenityContext) -> Result<Col
 
 #[derive(Debug, thiserror::Error)]
 enum EditSettingsError {
-    #[error("Aim error meter ur decimals have to be between 1 and 3!")]
+    #[error("Aim error meter ur decimals have to be between 0 and 3!")]
     InvalidAimErrorDecimals,
     #[error("Cursorsize has to be between 0.1 and 2!")]
     InvalidCursorSize,
-    #[error("Dim has to be between 0 and 1!")]
+    #[error("Dim has to be between 0.0 and 1.0!")]
     InvalidDim,
-    #[error("Hit error decimals have to be between 1 and 3!")]
+    #[error("Hit error decimals have to be between 0 and 3!")]
     InvalidHitErrorDecimals,
     #[error("Hitsound volume has to be between 1 and 100!")]
     InvalidHitsoundVolume,
     #[error("Music volume has to be between 1 and 100!")]
     InvalidMusicVolume,
-    #[error("PP counter decimals have to be between 1 and 3!")]
+    #[error("PP counter decimals have to be between 0 and 3!")]
     InvalidPpCounterDecimals,
     #[error("Skin is not valid!")]
     InvalidSkin,
@@ -319,7 +351,7 @@ async fn edit_setting(
             let value_as_number: u64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
-            if value_as_number < 1 || value_as_number > 3 {
+            if value_as_number > 3 {
                 return Err(EditSettingsError::InvalidPpCounterDecimals);
             }
 
@@ -329,7 +361,7 @@ async fn edit_setting(
             let value_as_number: u64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
-            if value_as_number < 1 || value_as_number > 3 {
+            if value_as_number > 3 {
                 return Err(EditSettingsError::InvalidHitErrorDecimals);
             }
 
@@ -339,7 +371,7 @@ async fn edit_setting(
             let value_as_number: u64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
-            if value_as_number < 1 || value_as_number > 3 {
+            if value_as_number > 3 {
                 return Err(EditSettingsError::InvalidAimErrorDecimals);
             }
 
