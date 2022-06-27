@@ -12,6 +12,7 @@ use std::{
     fs::{self, File},
     future::Future,
     io::Write,
+    iter,
     path::Path,
     pin::Pin,
     sync::Arc,
@@ -243,19 +244,24 @@ fn dynamic_prefix<'fut>(
                 .servers
                 .get(guild_id)
                 .and_then(|server| {
-                    server.prefixes.iter().fold(None, |longest, prefix| {
-                        if !msg.content.starts_with(prefix)
-                            || longest
-                                .map(|longest: &String| prefix.len() <= longest.len())
-                                .is_some()
-                        {
-                            longest
-                        } else {
-                            Some(prefix)
-                        }
-                    })
+                    server
+                        .prefixes
+                        .iter()
+                        .map(String::as_str)
+                        .chain(iter::once(DEFAULT_PREFIX))
+                        .fold(None, |longest, prefix| {
+                            if !msg.content.starts_with(prefix)
+                                || longest
+                                    .map(|longest: &str| prefix.len() <= longest.len())
+                                    .is_some()
+                            {
+                                longest
+                            } else {
+                                Some(prefix)
+                            }
+                        })
                 })
-                .map_or(DEFAULT_PREFIX, |prefix| prefix.as_str());
+                .unwrap_or(DEFAULT_PREFIX);
 
             Some(prefix.to_owned())
         } else {
