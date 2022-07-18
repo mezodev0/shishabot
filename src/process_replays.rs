@@ -451,8 +451,16 @@ async fn create_title(replay: &Replay, map_path: String, _mapset: &Beatmapset) -
     let acc = accuracy(replay, GameMode::STD);
 
     let title = format!(
-        "[{}⭐] {} | {} +{} {}%",
-        stars, player, map_title, mods_str, acc
+        "[{}⭐] {} | {}{}{}%",
+        stars,
+        player,
+        map_title,
+        if &mods_str == "NM" {
+            " "
+        } else {
+            format!(" +{} ", mods_str);
+        },
+        acc
     );
 
     Ok(title)
