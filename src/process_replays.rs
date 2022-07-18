@@ -456,9 +456,9 @@ async fn create_title(replay: &Replay, map_path: String, _mapset: &Beatmapset) -
         player,
         map_title,
         if &mods_str == "NM" {
-            " "
+            " ".to_owned()
         } else {
-            format!(" +{} ", mods_str);
+            format!(" +{} ", mods_str)
         },
         acc
     );
