@@ -6,7 +6,7 @@ use serenity::{
     client::Context as SerenityContext,
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
-    utils::Colour,
+    utils::Color,
 };
 use tokio::fs;
 
@@ -65,7 +65,6 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let settings_path = format!("../danser/settings/{}.json", author);
     let file_content = tokio::fs::read_to_string(settings_path).await?;
     let mut settings: Settings = serde_json::from_str(&file_content)?;
-    let color = get_user_role_color(msg, ctx).await?;
 
     if msg.content.split(' ').count() != 1
         && msg.content.split(' ').collect::<Vec<&str>>()[1] == "copy"
@@ -185,7 +184,7 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                             "off"
                         }
                     ))
-                    .color(color)
+                    .color(Color::new(15785176))
                     .footer(|f| f.text("To edit your settings type !!settings [setting] [value] | The setting name is the same as in the embed, spaces are replaced with '_'"))
             })
         })
@@ -195,38 +194,6 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
 
 async fn path_exists(path: String) -> bool {
     fs::metadata(path).await.is_ok()
-}
-
-async fn get_user_role_color(msg: &Message, ctx: &SerenityContext) -> Result<Colour> {
-    let mut roles = msg
-        .member(&ctx)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to get member {} in guild {}",
-                msg.author.id,
-                msg.guild_id.unwrap_or_default()
-            )
-        })?
-        .roles(&ctx)
-        .await
-        .with_context(|| {
-            format!(
-                "failed to get roles for member {} in guild {}",
-                msg.author.id,
-                msg.guild_id.unwrap_or_default()
-            )
-        })?;
-
-    roles.sort_unstable_by_key(|role| -role.position);
-
-    let color = if let Some(role) = roles.get(0) {
-        role.colour
-    } else {
-        Colour::from_rgb(246, 219, 216)
-    };
-
-    Ok(color)
 }
 
 #[derive(Debug, thiserror::Error)]
