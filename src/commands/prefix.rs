@@ -1,13 +1,13 @@
-use std::{collections::hash_map::Entry, fmt::Write};
-
+use crate::checks::PERMISSIONS_CHECK;
 use anyhow::{Context as AnyhowContext, Error};
 use serenity::{
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
     model::{channel::Message, id::ChannelId},
 };
+use std::{collections::hash_map::Entry, fmt::Write};
 
-use crate::{commands::server_settings_struct::Server, ServerSettings, DEFAULT_PREFIX};
+use crate::{server_settings_struct::Server, ServerSettings, DEFAULT_PREFIX};
 
 #[command]
 #[description = "Adjust prefixes in a server"]
@@ -15,7 +15,7 @@ use crate::{commands::server_settings_struct::Server, ServerSettings, DEFAULT_PR
 #[example = "add !! \"another prefix\" ~~"]
 #[example = "remove ~~"]
 #[only_in(guilds)]
-#[required_permissions("ADMINISTRATOR")]
+#[checks(Permissions)]
 async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mut args = args.raw_quoted();
     let guild_id = msg.guild_id.unwrap();
