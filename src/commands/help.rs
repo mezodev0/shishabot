@@ -14,6 +14,7 @@ use serenity::{
 #[lacking_role = "Hide"]
 #[wrong_channel = "Hide"]
 #[strikethrough_commands_tip_in_guild = ""]
+#[strikethrough_commands_tip_in_dm = ""]
 async fn help(
     ctx: &Context,
     msg: &Message,
