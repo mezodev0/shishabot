@@ -1,3 +1,5 @@
+use crate::checks::PERMISSIONS_CHECK;
+use crate::{server_settings_struct::Server, ServerSettings};
 use anyhow::{Context, Error};
 use serenity::{
     client::Context as SerenityContext,
@@ -5,10 +7,9 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
 };
 
-use crate::{commands::server_settings_struct::Server, ServerSettings};
-
 #[command]
-#[required_permissions("ADMINISTRATOR")]
+#[checks(Permissions)]
+#[only_in(guilds)]
 #[description = "Setup the input and output channels for your server!"]
 async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let mut mentioned_channels = msg
