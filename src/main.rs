@@ -24,16 +24,18 @@ use serenity::{
     async_trait,
     framework::standard::{
         macros::{group, hook},
-        CommandResult, StandardFramework,
+        CommandResult, DispatchError, Reason, StandardFramework,
     },
     model::prelude::*,
     prelude::*,
 };
 use tokio::sync::mpsc;
 
+mod checks;
 mod commands;
 mod logging;
 mod process_replays;
+pub(crate) mod server_settings_struct;
 mod streamable_wrapper;
 
 use commands::*;
@@ -48,7 +50,7 @@ impl TypeMapKey for ReplayHandler {
 
 struct ServerSettings;
 impl TypeMapKey for ServerSettings {
-    type Value = commands::server_settings_struct::Root;
+    type Value = server_settings_struct::Root;
 }
 
 struct Handler;
@@ -125,11 +127,12 @@ async fn main() {
         })
         .before(log_command)
         .after(finished_command)
+        .on_dispatch_error(dispatch_error)
         .group(&GENERAL_GROUP)
         .group(&DANSER_GROUP)
         .help(&HELP);
 
-    let client_fut = Client::builder(&token)
+    let client_fut = Client::builder(&token, GatewayIntents::all())
         .event_handler(Handler)
         .framework(framework);
 
@@ -270,4 +273,15 @@ fn dynamic_prefix<'fut>(
     };
 
     Box::pin(fut)
+}
+
+#[hook]
+async fn dispatch_error(_ctx: &Context, _msg: &Message, error: DispatchError, _command_name: &str) {
+    info!(" HELLOOO");
+    match error {
+        DispatchError::CheckFailed(name, Reason::Log(reason)) => {
+            info!("Check {name} failed: {reason}")
+        }
+        _ => info!("Other: {error:?}"),
+    }
 }
