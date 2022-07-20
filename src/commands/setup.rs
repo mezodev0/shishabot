@@ -10,7 +10,9 @@ use serenity::{
 #[command]
 #[checks(Permissions)]
 #[only_in(guilds)]
-#[description = "Setup the input and output channels for your server!"]
+#[description = "Setup the input and output channels for your server"]
+#[usage = "[input-channel] [output-channel]"]
+#[example = "#channel-1 #channel-2"]
 async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let mut mentioned_channels = msg
         .content

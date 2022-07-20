@@ -46,6 +46,7 @@ use crate::commands::Settings;
 
 **Strain Graph**
 !!settings show_strain_graph`[on/off]` - enable/disable the strain graph"]
+#[usage = "[setting] [value]\nsettings [user]\nsettings copy [user]"]
 async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
     let author = if msg.mentions.is_empty() {
         msg.author.id
