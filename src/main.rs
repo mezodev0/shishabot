@@ -277,7 +277,6 @@ fn dynamic_prefix<'fut>(
 
 #[hook]
 async fn dispatch_error(_ctx: &Context, _msg: &Message, error: DispatchError, _command_name: &str) {
-    info!(" HELLOOO");
     match error {
         DispatchError::CheckFailed(name, Reason::Log(reason)) => {
             info!("Check {name} failed: {reason}")
