@@ -14,14 +14,14 @@ async fn permissions_check(
 ) -> Result<(), Reason> {
     let guild_id = msg
         .guild_id
-        .ok_or_else(|| Reason::Log("message was not sent in a guild".to_string()))?;
+        .ok_or_else(|| Reason::User("message was not sent in a guild".to_string()))?;
 
     if let Some(guild) = ctx.cache.guild(guild_id) {
         info!("guild passed");
 
         let channels = match guild.channels(&ctx).await {
             Ok(channels) => channels,
-            Err(err) => return Err(Reason::Log(format!("couldn't fetch channels: {err}"))),
+            Err(err) => return Err(Reason::User(format!("couldn't fetch channels: {err}"))),
         };
         info!("channels passed");
 
@@ -41,12 +41,12 @@ async fn permissions_check(
         // if let Some(channel) = &ctx.cache.guild_channel(msg.channel_id) {
         let member = match guild_id.member(&ctx, &msg.author.id).await {
             Ok(member) => member,
-            Err(err) => return Err(Reason::Log(format!("couldn't fetch member: {err}"))),
+            Err(err) => return Err(Reason::User(format!("couldn't fetch member: {err}"))),
         };
         info!("member passed");
         let perms = match guild.user_permissions_in(&guild_channel, &member) {
             Ok(perms) => perms,
-            Err(err) => return Err(Reason::Log(format!("couldn't fetch permissions: {err}"))),
+            Err(err) => return Err(Reason::User(format!("couldn't fetch permissions: {err}"))),
         };
         info!("perms passed");
         if !perms
