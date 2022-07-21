@@ -1,7 +1,10 @@
 use serenity::{
     client::Context,
     framework::standard::{macros::check, Args, CommandOptions, Reason},
-    model::{channel::Message, Permissions},
+    model::{
+        channel::{Channel, Message},
+        Permissions,
+    },
 };
 
 #[check]
@@ -19,24 +22,11 @@ async fn permissions_check(
     if let Some(guild) = ctx.cache.guild(guild_id) {
         info!("guild passed");
 
-        let channels = match guild.channels(&ctx).await {
-            Ok(channels) => channels,
-            Err(err) => return Err(Reason::User(format!("couldn't fetch channels: {err}"))),
+        let guild_channel = match msg.channel_id.to_channel(&ctx).await {
+            Ok(Channel::Guild(channel)) => channel,
+            Err(err) => return Err(Reason::Log(format!("couldn't fetch channel: {err}"))),
+            Ok(_) => todo!("private or group channel"),
         };
-        info!("channels passed");
-
-        let mut guild_channel = match &ctx.cache.guild_channel(&msg.channel_id) {
-            Some(channel) => channel.to_owned(),
-            None => todo!(),
-        };
-
-        for (id, channel) in channels.into_iter() {
-            if id == msg.channel_id {
-                guild_channel = channel;
-                info!("channel found");
-                break;
-            }
-        }
 
         // if let Some(channel) = &ctx.cache.guild_channel(msg.channel_id) {
         let member = match guild_id.member(&ctx, &msg.author.id).await {
