@@ -207,9 +207,9 @@ enum EditSettingsError {
     InvalidDim,
     #[error("Hit error decimals have to be between 0 and 3!")]
     InvalidHitErrorDecimals,
-    #[error("Hitsound volume has to be between 1 and 100!")]
+    #[error("Hitsound volume has to be between 0 and 100!")]
     InvalidHitsoundVolume,
-    #[error("Music volume has to be between 1 and 100!")]
+    #[error("Music volume has to be between 0 and 100!")]
     InvalidMusicVolume,
     #[error("PP counter decimals have to be between 0 and 3!")]
     InvalidPpCounterDecimals,
@@ -297,7 +297,7 @@ async fn edit_setting(
                 .parse()
                 .map_err(|_| EditSettingsError::InvalidValue)?;
 
-            if value_as_number < 1.0 || value_as_number > 100.0 {
+            if value_as_number < 0.0 || value_as_number > 100.0 {
                 return Err(EditSettingsError::InvalidMusicVolume);
             }
 
@@ -309,7 +309,7 @@ async fn edit_setting(
                 .parse()
                 .map_err(|_| EditSettingsError::InvalidValue)?;
 
-            if value_as_number < 1.0 || value_as_number > 100.0 {
+            if value_as_number < 0.0 || value_as_number > 100.0 {
                 return Err(EditSettingsError::InvalidHitsoundVolume);
             }
 
@@ -333,7 +333,7 @@ async fn edit_setting(
                 return Err(EditSettingsError::InvalidHitErrorDecimals);
             }
 
-            settings.gameplay.pp_counter.decimals = value_as_number;
+            settings.gameplay.hit_error_meter.unstable_rate_decimals = value_as_number;
         }
         "aim_error_meter_ur_decimals" => {
             let value_as_number: u64 =
@@ -343,7 +343,7 @@ async fn edit_setting(
                 return Err(EditSettingsError::InvalidAimErrorDecimals);
             }
 
-            settings.gameplay.pp_counter.decimals = value_as_number;
+            settings.gameplay.aim_error_meter.unstable_rate_decimals = value_as_number;
         }
         "show_aim_error_meter" | "aim_error_meter" => {
             settings.gameplay.aim_error_meter.show =

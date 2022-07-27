@@ -128,7 +128,7 @@ pub struct HitErrorMeter {
     pub yoffset: i64,
     pub show_positional_misses: bool,
     pub show_unstable_rate: bool,
-    pub unstable_rate_decimals: i64,
+    pub unstable_rate_decimals: u64,
     pub unstable_rate_scale: f64,
 }
 
