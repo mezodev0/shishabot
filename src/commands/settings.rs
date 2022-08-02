@@ -28,6 +28,7 @@ use crate::commands::Settings;
 **Audio**
 !!settings music_volume `[0 - 100]` - change the music volume
 !!settings hitsound_volume `[0 - 100]` - change the hitsound volume
+!!settings beatmap_hitsounds `[on/off] - enable/disable beatmap hitsounds
 
 **PP Counter**
 !!settings pp_counter_decimals `[0 - 3]` - changes the amount of decimals displayed on the pp counter
@@ -134,8 +135,8 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                     .description(format!(
                         "**Skin**\n`skin`: {}\n\n\
                         **Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n\
-                        **Background**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n\
-                        **Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\n\n\
+                        **Beatmap**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n\
+                        **Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\nbeatmap hitsounds`: {}\n\n\
                         **PP Counter**\n`pp counter decimals`: {}\n\n\
                         **Hit Error Meter**\n`hit error decimals`: {}\n\n\
                         **Aim Error Meter**\n`show aim error meter`: {}\n`aim error meter ur decimals`: {}\n\n\
@@ -161,6 +162,11 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                         settings.playfield.background.dim.normal,
                         (settings.audio.music_volume * 100.0),
                         (settings.audio.sample_volume * 100.0),
+                        if !settings.audio.ignore_beatmap_samples {
+                            "on"
+                        } else {
+                            "off"
+                        },
                         settings.gameplay.pp_counter.decimals,
                         settings.gameplay.hit_error_meter.unstable_rate_decimals,
                         if settings.gameplay.aim_error_meter.show {
@@ -314,6 +320,10 @@ async fn edit_setting(
             }
 
             settings.audio.sample_volume = value_as_number / 100.0;
+        }
+        "beatmap_hitsounds" => {
+            settings.audio.ignore_beatmap_samples =
+                matches!(value.to_uppercase().as_str(), "OFF" | "FALSE" | "NO");
         }
         "pp_counter_decimals" => {
             let value_as_number: u64 =
