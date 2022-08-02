@@ -4,10 +4,9 @@ use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
     prelude::*,
+    utils::Color,
 };
 use tokio::fs;
-
-use crate::commands::Color;
 
 #[command]
 #[description = "Displays all skins available"]
