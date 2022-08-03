@@ -8,6 +8,7 @@ extern crate lazy_static;
 extern crate log;
 
 use std::{
+    collections::VecDeque,
     env,
     fs::{self, File},
     future::Future,
@@ -29,7 +30,6 @@ use serenity::{
     model::prelude::*,
     prelude::*,
 };
-use tokio::sync::mpsc;
 
 mod checks;
 mod commands;
@@ -37,15 +37,73 @@ mod logging;
 mod process_replays;
 pub(crate) mod server_settings_struct;
 mod streamable_wrapper;
+mod util;
 
 use commands::*;
 use process_replays::*;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 const DEFAULT_PREFIX: &str = "!!";
 
 struct ReplayHandler;
 impl TypeMapKey for ReplayHandler {
-    type Value = mpsc::UnboundedSender<Data>;
+    type Value = Arc<ReplayQueue>;
+}
+pub struct ReplayQueue {
+    queue: Mutex<VecDeque<Data>>,
+    tx: UnboundedSender<()>,
+    rx: Mutex<UnboundedReceiver<()>>,
+    status: Mutex<ReplayStatus>,
+}
+
+#[derive(Copy, Clone)]
+pub enum ReplayStatus {
+    Waiting,
+    Downloading,
+    Processing,
+    Uploading,
+}
+
+impl ReplayQueue {
+    pub fn new() -> Self {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<()>();
+
+        Self {
+            queue: Mutex::new(VecDeque::new()),
+            tx,
+            rx: Mutex::new(rx),
+            status: Mutex::new(ReplayStatus::Waiting),
+        }
+    }
+
+    pub async fn push(&self, data: Data) {
+        self.queue.lock().await.push_back(data);
+        let _ = self.tx.send(());
+    }
+
+    pub async fn pop(&self) -> Data {
+        return self.queue.lock().await.pop_front().unwrap();
+    }
+
+    pub async fn front(&self) -> Data {
+        let mut guard = self.rx.lock().await;
+        let _ = guard.recv().await;
+        return self.queue.lock().await.front().unwrap().to_owned();
+    }
+
+    pub async fn update_status(&self) {
+        let status = *self.status.lock().await;
+        match status {
+            ReplayStatus::Waiting => *self.status.lock().await = ReplayStatus::Downloading,
+            ReplayStatus::Downloading => *self.status.lock().await = ReplayStatus::Processing,
+            ReplayStatus::Processing => *self.status.lock().await = ReplayStatus::Uploading,
+            ReplayStatus::Uploading => *self.status.lock().await = ReplayStatus::Waiting,
+        }
+    }
+
+    pub async fn default_status(&self) {
+        *self.status.lock().await = ReplayStatus::Waiting;
+    }
 }
 
 struct ServerSettings;
@@ -63,11 +121,9 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        let data = ctx.data.read().await;
-        let sender = data.get::<ReplayHandler>().unwrap();
         let shard = ctx.shard.clone();
 
-        match parse_attachment_replay(&msg, sender, shard, &ctx.data).await {
+        match parse_attachment_replay(&msg, shard, &ctx.data).await {
             Ok(AttachmentParseSuccess::NothingToDo) => {}
             Ok(AttachmentParseSuccess::BeingProcessed) => {
                 let reaction = ReactionType::Unicode("✅".to_string());
@@ -96,7 +152,7 @@ impl EventHandler for Handler {
 struct General;
 
 #[group]
-#[commands(settings, skinlist, setup)]
+#[commands(settings, skinlist, setup, queue)]
 struct Danser;
 
 #[tokio::main]
@@ -177,12 +233,16 @@ async fn main() {
     };
 
     let http = Arc::clone(&client.cache_and_http.http);
-    let (sender, receiver) = mpsc::unbounded_channel();
-    tokio::spawn(process_replay(receiver, osu, http, reqwest_client));
-
+    let queue = Arc::new(ReplayQueue::new());
+    tokio::spawn(process_replay(
+        osu,
+        http,
+        reqwest_client,
+        Arc::clone(&queue),
+    ));
     {
         let mut data = client.data.write().await;
-        data.insert::<ReplayHandler>(sender);
+        data.insert::<ReplayHandler>(queue);
         data.insert::<ServerSettings>(settings);
     }
 

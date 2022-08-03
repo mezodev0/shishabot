@@ -1,4 +1,4 @@
-use std::{env, io::Cursor, mem, sync::Arc, time::Duration};
+use std::{env, io::Cursor, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error, Result};
 use osu_db::Replay;
@@ -19,12 +19,14 @@ use tokio::{
     fs::{self, DirEntry, File},
     io::AsyncWriteExt,
     process::Command,
-    sync::mpsc::{UnboundedReceiver, UnboundedSender},
     time::{self, interval, MissedTickBehavior},
 };
 use zip::ZipArchive;
 
-use crate::{streamable_wrapper::StreamableApi, ServerSettings, DEFAULT_PREFIX};
+use crate::{
+    streamable_wrapper::StreamableApi, util::levenshtein_similarity, ReplayHandler, ReplayQueue,
+    ServerSettings, DEFAULT_PREFIX,
+};
 
 pub enum AttachmentParseSuccess {
     NothingToDo,
@@ -43,22 +45,18 @@ pub enum AttachmentParseError {
 
 type AttachmentParseResult = Result<AttachmentParseSuccess, AttachmentParseError>;
 
+#[derive(Clone, Debug)]
 pub struct Data {
-    path: String,
-    replay: Replay,
-    channel: ChannelId,
-    user: UserId,
-    replay_params: String,
+    pub path: String,
+    pub replay: Replay,
+    pub channel: ChannelId,
+    pub user: UserId,
+    pub replay_params: String,
     shard: ShardMessenger,
     server_prefixes: Vec<String>,
 }
 
-pub async fn process_replay(
-    mut receiver: UnboundedReceiver<Data>,
-    osu: Osu,
-    http: Arc<Http>,
-    client: Client,
-) {
+pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Arc<ReplayQueue>) {
     let username = env::var("STREAMABLE_USERNAME")
         .context("missing env variable `STREAMABLE_USERNAME`")
         .unwrap();
@@ -72,7 +70,10 @@ pub async fn process_replay(
         .context("failed to create streamable api wrapper")
         .unwrap();
 
-    while let Some(replay_data) = receiver.recv().await {
+    loop {
+        let replay_data = queue.front().await;
+        info!("REPLAY DATA: {}", replay_data.path);
+
         let replay_path = replay_data.path;
         let replay_file = replay_data.replay;
         let replay_user = replay_data.user;
@@ -86,19 +87,57 @@ pub async fn process_replay(
                     Some(mapset) => mapset,
                     None => {
                         warn!("missing mapset in map");
+
+                        send_error_message(
+                            &http,
+                            replay_channel,
+                            replay_user,
+                            "the mapset is missing in the map",
+                        )
+                        .await;
+
+                        shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                        queue.default_status().await;
+                        queue.pop().await;
                         continue;
                     }
                 },
                 Err(why) => {
                     let err = Error::new(why)
                         .context(format!("failed to request map with hash `{}`", hash));
-
                     warn!("{:?}", err);
+
+                    send_error_message(
+                        &http,
+                        replay_channel,
+                        replay_user,
+                        format!("failed to get the map with hash: `{}`", &hash).as_str(),
+                    )
+                    .await;
+
+                    shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                    queue.default_status().await;
+                    queue.pop().await;
                     continue;
                 }
             },
             None => {
                 warn!("No hash in replay requested by user {}", replay_user);
+
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    "couldn't find hash in your replay file",
+                )
+                .await;
+
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         };
@@ -107,21 +146,23 @@ pub async fn process_replay(
 
         let mapset_id = mapset.mapset_id;
         info!("Started map download");
+        queue.update_status().await;
 
         if let Err(why) = download_mapset(mapset_id, &client).await {
             warn!("{:?}", why);
-            if let Err(err) = replay_channel
-                .send_message(&http, |m| {
-                    m.content(format!(
-                        "<@{}>, failed to download map: {}",
-                        replay_user, why
-                    ))
-                })
-                .await
-            {
-                warn!("Couldn't send error message to discord: {}", err);
-            }
+
+            send_error_message(
+                &http,
+                replay_channel,
+                replay_user,
+                format!("failed to download map: {}", why).as_str(),
+            )
+            .await;
+
             shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+            queue.default_status().await;
+            queue.pop().await;
             continue;
         }
 
@@ -142,6 +183,19 @@ pub async fn process_replay(
             Some(name) => name,
             None => {
                 warn!("replay path `{}` has an unexpected form", replay_path);
+
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    "there was an error resolving the beatmap path",
+                )
+                .await;
+
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         };
@@ -165,6 +219,7 @@ pub async fn process_replay(
 
         shard.set_activity(Some(Activity::watching("!!help - Parsing replay")));
         info!("Started replay parsing");
+        queue.update_status().await;
 
         match command.output().await {
             Ok(output) => {
@@ -179,18 +234,19 @@ pub async fn process_replay(
             Err(why) => {
                 let err = Error::new(why).context("failed to get command output");
                 warn!("{:?}", err);
-                if let Err(why) = replay_channel
-                    .send_message(&http, |m| {
-                        m.content(format!(
-                            "<@{}>, failed to parse replay: {}",
-                            replay_user, err
-                        ))
-                    })
-                    .await
-                {
-                    warn!("Failed to send error message to discord: {}", why);
-                }
+
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    format!("failed to parse replay: {}", err).as_str(),
+                )
+                .await;
+
                 shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         }
@@ -201,18 +257,19 @@ pub async fn process_replay(
             Ok(osu_file) => osu_file,
             Err(why) => {
                 warn!("{:?}", why.context("failed to get map_osu_file"));
-                if let Err(err) = replay_channel
-                    .send_message(&http, |m| {
-                        m.content(format!(
-                            "<@{}>, the version the mirrors do not match the replay",
-                            replay_user
-                        ))
-                    })
-                    .await
-                {
-                    warn!("failed to send message: {}", err);
-                }
+
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    "the version the mirrors do not match the replay",
+                )
+                .await;
+
                 shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         };
@@ -224,6 +281,19 @@ pub async fn process_replay(
             Ok(title) => title,
             Err(why) => {
                 warn!("{:?}", why.context("failed to create title"));
+
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    "there was an error while trying to create the streamable title",
+                )
+                .await;
+
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         };
@@ -232,22 +302,25 @@ pub async fn process_replay(
         shard.set_activity(Some(Activity::watching(activity)));
 
         info!("Started upload to streamable");
+        queue.update_status().await;
 
         let shortcode = match streamable.upload_video(streamable_title, &filepath).await {
             Ok(response) => response.shortcode,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
 
-                if let Err(err) = replay_channel
-                    .send_message(&http, |m| {
-                        m.content(format!("<@{replay_user}>, failed to upload to streamable"))
-                    })
-                    .await
-                {
-                    warn!("Failed to send error message to discord: {}", err);
-                }
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    "failed to upload to streamable",
+                )
+                .await;
 
                 shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         };
@@ -260,11 +333,36 @@ pub async fn process_replay(
                         abort and go to next..."
                     );
 
+                    send_error_message(
+                        &http,
+                        replay_channel,
+                        replay_user,
+                        "there was an error while trying to retrieve the video's ready status",
+                    )
+                    .await;
+
+                    shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                    queue.default_status().await;
+                    queue.pop().await;
                     continue;
                 }
             }
             _ = time::sleep(Duration::from_secs(300)) => {
                 warn!("Failed to upload video within 5 minutes, abort and go to next...");
+
+                send_error_message(
+                    &http,
+                    replay_channel,
+                    replay_user,
+                    "failed to upload the replay within 5 minutes",
+                )
+                .await;
+
+                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
+
+                queue.default_status().await;
+                queue.pop().await;
                 continue;
             }
         }
@@ -277,11 +375,13 @@ pub async fn process_replay(
         let msg_fut = replay_channel.send_message(&http, |m| m.content(content));
 
         shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
-
         if let Err(why) = msg_fut.await {
             let err = Error::new(why).context("failed to send streamable link");
             warn!("{:?}", err);
         }
+
+        queue.update_status().await;
+        queue.pop().await;
     }
 }
 
@@ -321,7 +421,6 @@ async fn await_video_ready(streamable: &StreamableApi, shortcode: &str) -> Resul
 
 pub async fn parse_attachment_replay(
     msg: &Message,
-    sender: &UnboundedSender<Data>,
     shard_messenger: ShardMessenger,
     ctx_data: &RwLock<TypeMap>,
 ) -> AttachmentParseResult {
@@ -358,16 +457,43 @@ pub async fn parse_attachment_replay(
         None => return Ok(AttachmentParseSuccess::NothingToDo),
     };
 
-    let bytes = attachment.download().await?;
-    let replay = osu_db::Replay::from_bytes(&bytes)?;
+    let bytes = match attachment.download().await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            warn!("download error: {err}");
+            return Err(AttachmentParseError::Download(err));
+        }
+    };
 
-    let mut file = File::create(format!("../Downloads/{}", &attachment.filename))
-        .await
-        .context("failed to create file")?;
+    let replay = match osu_db::Replay::from_bytes(&bytes) {
+        Ok(replay) => replay,
+        Err(err) => {
+            warn!("osu_db replay error: {err}");
+            return Err(AttachmentParseError::Parsing(err));
+        }
+    };
 
-    file.write_all(&bytes)
-        .await
-        .context("failed writing to file")?;
+    let mut file = match File::create(format!("../Downloads/{}", &attachment.filename)).await {
+        Ok(file) => file,
+        Err(err) => {
+            warn!("failed to create file: {err}");
+            return Err(AttachmentParseError::Other(anyhow!(
+                "failed to create file: {:?}",
+                err
+            )));
+        }
+    };
+
+    match file.write_all(&bytes).await {
+        Ok(()) => (),
+        Err(err) => {
+            warn!("failed writing to file");
+            return Err(AttachmentParseError::Other(anyhow!(
+                "failed writing to file: {:?}",
+                err
+            )));
+        }
+    };
 
     let replay_data = Data {
         path: format!("../Downloads/{}", &attachment.filename),
@@ -379,9 +505,13 @@ pub async fn parse_attachment_replay(
         server_prefixes: prefixes.unwrap_or_else(|| vec![DEFAULT_PREFIX.to_string()]),
     };
 
-    if let Err(why) = sender.send(replay_data) {
-        warn!("failed to send: {}", why);
-    }
+    ctx_data
+        .read()
+        .await
+        .get::<ReplayHandler>()
+        .unwrap()
+        .push(replay_data)
+        .await;
 
     Ok(AttachmentParseSuccess::BeingProcessed)
 }
@@ -423,14 +553,37 @@ async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
 }
 
 async fn download_mapset_(url: String, out_path: &str, client: &Client) -> Result<()> {
-    let bytes = client.get(url).send().await?.bytes().await?;
+    let bytes = match client.get(&url).send().await {
+        Ok(resp) => match resp.bytes().await {
+            Ok(bytes) => bytes,
+            Err(err) => return Err(anyhow!("failed to read bytes: {err}")),
+        },
+        Err(err) => {
+            return Err(anyhow!(
+                "failed to GET using: {}, error: {}",
+                url.as_str(),
+                err
+            ))
+        }
+    };
+
     let cursor = Cursor::new(bytes);
 
-    let mut archive = ZipArchive::new(cursor).context("failed to create zip archive")?;
+    let mut archive = match ZipArchive::new(cursor) {
+        Ok(archive) => archive,
+        Err(err) => return Err(anyhow!("failed to create zip archive: {err}")),
+    };
 
-    archive
-        .extract(out_path)
-        .with_context(|| format!("failed to extract zip archive at `{}`", out_path))?;
+    match archive.extract(out_path) {
+        Ok(()) => (),
+        Err(err) => {
+            return Err(anyhow!(
+                "failed to extract zip archive at `{}`, error: {}",
+                out_path,
+                err
+            ))
+        }
+    };
 
     Ok(())
 }
@@ -438,11 +591,10 @@ async fn download_mapset_(url: String, out_path: &str, client: &Client) -> Resul
 async fn create_title(replay: &Replay, map_path: String, _mapset: &Beatmapset) -> Result<String> {
     let mods = replay.mods.bits();
 
-    let stars = Beatmap::from_path(&map_path)
-        .await
-        .with_context(|| format!("failed to parse map `{}`", map_path))?
-        .stars(mods, None)
-        .stars();
+    let stars = match Beatmap::from_path(&map_path).await {
+        Ok(beatmap) => beatmap.stars(mods, None).stars(),
+        Err(err) => return Err(anyhow!("failed to get stars: {err}")),
+    };
 
     let mods_str = GameMods::from_bits(mods).unwrap_or_default().to_string();
     let stars = (stars * 100.0).round() / 100.0;
@@ -467,31 +619,58 @@ async fn create_title(replay: &Replay, map_path: String, _mapset: &Beatmapset) -
 }
 
 async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
-    let file = fs::read_to_string("../danser/danser.log")
-        .await
-        .context("failed to read danser logs")?;
+    let file = match fs::read_to_string("../danser/danser.log").await {
+        Ok(file) => file,
+        Err(err) => return Err(anyhow!("failed to read danser logs: {err}")),
+    };
 
-    let line = file
-        .lines()
-        .find(|line| line.contains("Playing:"))
-        .ok_or_else(|| anyhow!("expected `Playing:` in danser logs"))?;
+    let line;
 
-    let map_without_artist = line
-        .splitn(4, ' ')
-        .last()
-        .ok_or_else(|| anyhow!("expected at least 5 words in danser log line `{}`", line))?;
+    if let Some(l) = file.lines().find(|line| line.contains("Playing:")) {
+        line = l;
+    } else {
+        return Err(anyhow!("expected `Playing:` in danser logs"));
+    }
+
+    let map_without_artist;
+
+    if let Some(m) = line.splitn(4, ' ').last() {
+        map_without_artist = m;
+    } else {
+        return Err(anyhow!(
+            "expected at least 5 words in danser log line `{}`",
+            line
+        ));
+    }
 
     let items_dir = format!("../Songs/{}", mapset_id);
 
-    let mut items = fs::read_dir(&items_dir)
-        .await
-        .with_context(|| format!("failed to read items dir at `{}`", items_dir))?;
+    let mut items = match fs::read_dir(&items_dir).await {
+        Ok(items) => items,
+        Err(err) => {
+            return Err(anyhow!(
+                "failed to read items dir at `{}`, error: {}",
+                items_dir,
+                err
+            ))
+        }
+    };
 
     let mut correct_items: Vec<DirEntry> = Vec::new();
 
-    while let Some(entry) = items.next_entry().await? {
-        if entry.file_name().to_str().unwrap().ends_with(".osu") {
-            correct_items.push(entry);
+    loop {
+        match items.next_entry().await {
+            Ok(Some(entry)) => {
+                if entry.file_name().to_str().unwrap().ends_with(".osu") {
+                    correct_items.push(entry);
+                }
+            }
+            Ok(None) => break,
+            Err(err) => {
+                return Err(anyhow!(
+                    "there was an error while trying to read the files: {err}"
+                ))
+            }
         }
     }
 
@@ -518,60 +697,6 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
     );
 
     Ok(final_file_name)
-}
-
-pub fn levenshtein_similarity(word_a: &str, word_b: &str) -> f32 {
-    let (dist, len) = levenshtein_distance(word_a, word_b);
-
-    (len - dist) as f32 / len as f32
-}
-
-macro_rules! get {
-    ($slice:ident[$idx:expr]) => {
-        unsafe { *$slice.get_unchecked($idx) }
-    };
-}
-
-macro_rules! set {
-    ($slice:ident[$idx:expr] = $val:expr) => {
-        unsafe { *$slice.get_unchecked_mut($idx) = $val }
-    };
-}
-
-fn levenshtein_distance<'w>(mut word_a: &'w str, mut word_b: &'w str) -> (usize, usize) {
-    let mut m = word_a.chars().count();
-    let mut n = word_b.chars().count();
-
-    if m > n {
-        mem::swap(&mut word_a, &mut word_b);
-        mem::swap(&mut m, &mut n);
-    }
-
-    // u16 is sufficient considering the max length
-    // of discord messages is smaller than u16::MAX
-    let mut costs: Vec<_> = (0..=n as u16).collect();
-
-    // SAFETY for get! and set!:
-    // chars(word_a) <= chars(word_b) = N < N + 1 = costs.len()
-
-    for (a, i) in word_a.chars().zip(1..) {
-        let mut last_val = i;
-
-        for (b, j) in word_b.chars().zip(1..) {
-            let new_val = if a == b {
-                get!(costs[j - 1])
-            } else {
-                get!(costs[j - 1]).min(last_val).min(get!(costs[j])) + 1
-            };
-
-            set!(costs[j - 1] = last_val);
-            last_val = new_val;
-        }
-
-        set!(costs[n] = last_val);
-    }
-
-    (get!(costs[n]) as usize, n)
 }
 
 fn accuracy(replay: &Replay, mode: GameMode) -> f32 {
@@ -618,19 +743,29 @@ fn total_hits(replay: &Replay, mode: GameMode) -> u32 {
 }
 
 async fn get_title() -> Result<String> {
-    let file = fs::read_to_string("../danser/danser.log")
-        .await
-        .context("failed to read danser logs")?;
+    let file = match fs::read_to_string("../danser/danser.log").await {
+        Ok(file) => file,
+        Err(err) => return Err(anyhow!("failed to read danser logs: {err}")),
+    };
 
-    let line = file
-        .lines()
-        .find(|line| line.contains("Playing:"))
-        .ok_or_else(|| anyhow!("expected `Playing:` in danser logs"))?;
+    let line;
 
-    let map_without_artist = line
-        .splitn(4, ' ')
-        .last()
-        .ok_or_else(|| anyhow!("expected at least 5 words in danser log line `{}`", line))?;
+    if let Some(l) = file.lines().find(|line| line.contains("Playing:")) {
+        line = l;
+    } else {
+        return Err(anyhow!("expected `Playing:` in danser logs"));
+    }
+
+    let map_without_artist;
+
+    if let Some(m) = line.splitn(4, ' ').last() {
+        map_without_artist = m;
+    } else {
+        return Err(anyhow!(
+            "expected at least 5 words in danser log line `{}`",
+            line
+        ));
+    }
 
     Ok(map_without_artist.to_string())
 }
@@ -639,4 +774,20 @@ fn check_server_prefix(server_prefixes: Vec<String>, params: &str) -> bool {
     server_prefixes
         .iter()
         .any(|p| params.starts_with(p) && params[p.len()..].starts_with("start"))
+}
+
+async fn send_error_message(
+    http: &Arc<Http>,
+    replay_channel: ChannelId,
+    replay_user: UserId,
+    content: &str,
+) {
+    if let Err(err) = replay_channel
+        .send_message(&http, |m| {
+            m.content(format!("<@{}>, {}", replay_user, content))
+        })
+        .await
+    {
+        warn!("Couldn't send error message to discord: {}", err);
+    }
 }
