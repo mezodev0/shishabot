@@ -650,19 +650,148 @@ pub struct Recording {
     #[serde(rename = "EncodingFPSCap")]
     pub encoding_fpscap: i64,
     pub encoder: String,
-    pub encoder_options: String,
-    pub profile: String,
-    pub preset: String,
+    #[serde(rename = "libx264")]
+    pub libx264: Libx264,
+    #[serde(rename = "libx265")]
+    pub libx265: Libx265,
+    #[serde(rename = "h264_nvenc")]
+    pub h264_nvenc: H264Nvenc,
+    #[serde(rename = "hevc_nvenc")]
+    pub hevc_nvenc: HevcNvenc,
+    #[serde(rename = "h264_qsv")]
+    pub h264_qsv: H264Qsv,
+    #[serde(rename = "hevc_qsv")]
+    pub hevc_qsv: HevcQsv,
+    #[serde(rename = "custom")]
+    pub custom: Custom,
     pub pixel_format: String,
     pub filters: String,
     pub audio_codec: String,
-    pub audio_options: String,
+    #[serde(rename = "aac")]
+    pub aac: Aac,
+    #[serde(rename = "libmp3lame")]
+    pub libmp3lame: Libmp3lame,
+    #[serde(rename = "libopus")]
+    pub libopus: Libopus,
+    #[serde(rename = "flac")]
+    pub flac: Flac,
+    #[serde(rename = "customAudio")]
+    pub custom_audio: CustomAudio,
     pub audio_filters: String,
     pub output_dir: String,
     pub container: String,
     #[serde(rename = "ShowFFmpegLogs")]
     pub show_ffmpeg_logs: bool,
     pub motion_blur: MotionBlur,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Libx264 {
+    pub rate_control: String,
+    pub bitrate: String,
+    #[serde(rename = "CRF")]
+    pub crf: i64,
+    pub profile: String,
+    pub preset: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Libx265 {
+    pub rate_control: String,
+    pub bitrate: String,
+    #[serde(rename = "CRF")]
+    pub crf: i64,
+    pub preset: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct H264Nvenc {
+    pub rate_control: String,
+    pub bitrate: String,
+    #[serde(rename = "CQ")]
+    pub cq: i64,
+    pub profile: String,
+    pub preset: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct HevcNvenc {
+    pub rate_control: String,
+    pub bitrate: String,
+    #[serde(rename = "CQ")]
+    pub cq: i64,
+    pub preset: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct H264Qsv {
+    pub rate_control: String,
+    pub bitrate: String,
+    pub quality: i64,
+    pub profile: String,
+    pub preset: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct HevcQsv {
+    pub rate_control: String,
+    pub bitrate: String,
+    pub quality: i64,
+    pub preset: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Custom {
+    pub custom_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Aac {
+    pub bitrate: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Libmp3lame {
+    pub rate_control: String,
+    pub target_bitrate: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Libopus {
+    pub rate_control: String,
+    pub target_bitrate: String,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Flac {
+    pub compression_level: i64,
+    pub additional_options: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CustomAudio {
+    pub custom_options: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

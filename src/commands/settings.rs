@@ -225,6 +225,8 @@ enum EditSettingsError {
     InvalidValue,
     #[error("Couldn't find skin!")]
     MissingSkin,
+    #[error("The setting you tried to edit doesn't exist!")]
+    InvalidSetting,
     #[error(transparent)]
     Other(#[from] Error),
 }
@@ -371,7 +373,9 @@ async fn edit_setting(
             settings.gameplay.strain_graph.show =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
-        _ => {}
+        _ => {
+            return Err(EditSettingsError::InvalidSetting);
+        }
     }
 
     let edited_setting =
