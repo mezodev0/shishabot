@@ -72,7 +72,6 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
     loop {
         let replay_data = queue.front().await;
-        info!("REPLAY DATA: {}", replay_data.path);
 
         let replay_path = replay_data.path;
         let replay_file = replay_data.replay;
@@ -262,7 +261,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     &http,
                     replay_channel,
                     replay_user,
-                    "the version the mirrors do not match the replay",
+                    "there was an error reading the log file",
                 )
                 .await;
 
