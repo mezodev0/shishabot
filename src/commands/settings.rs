@@ -33,7 +33,6 @@ use crate::commands::Settings;
 **PP Counter**
 !!settings pp_counter_decimals `[0 - 3]` - changes the amount of decimals displayed on the pp counter
 
-
 **Hit Error Meter**
 !!settings hit_error_decimals `[0 - 3]` - changes the amount of decimals displayed on the hit error meter
 
