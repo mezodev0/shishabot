@@ -20,8 +20,6 @@ async fn permissions_check(
         .ok_or_else(|| Reason::Log("message was not sent in a guild".to_string()))?;
 
     if let Some(guild) = ctx.cache.guild(guild_id) {
-        info!("guild passed");
-
         let guild_channel = match msg.channel_id.to_channel(&ctx).await {
             Ok(Channel::Guild(channel)) => channel,
             Err(err) => return Err(Reason::Log(format!("couldn't fetch channel: {:?}", err))),
@@ -33,7 +31,7 @@ async fn permissions_check(
             Ok(member) => member,
             Err(err) => return Err(Reason::Log(format!("couldn't fetch member: {:?}", err))),
         };
-        info!("member passed");
+
         let perms = match guild.user_permissions_in(&guild_channel, &member) {
             Ok(perms) => perms,
             Err(err) => {
@@ -43,17 +41,14 @@ async fn permissions_check(
                 )))
             }
         };
-        info!("perms passed");
+
         if !perms
             .intersection(Permissions::ADMINISTRATOR | Permissions::MANAGE_CHANNELS)
             .is_empty()
         {
-            info!("ok");
             return Ok(());
         }
-        // }
     }
-    info!("err");
     Err(Reason::User(
         "Lacking required permission to run command".to_string(),
     ))
