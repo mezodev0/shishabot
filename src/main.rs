@@ -146,6 +146,24 @@ impl EventHandler for Handler {
             }
         }
     }
+
+    async fn guild_create(&self, ctx: Context, _: Guild, is_new: bool) {
+        if is_new {
+            ctx.set_activity(Activity::playing(format!(
+                "in {} servers | !!help",
+                ctx.cache.guilds().len()
+            )))
+            .await;
+        }
+    }
+
+    async fn guild_delete(&self, ctx: Context, _: UnavailableGuild, _: Option<Guild>) {
+        ctx.set_activity(Activity::playing(format!(
+            "in {} servers | !!help",
+            ctx.cache.guilds().len()
+        )))
+        .await;
+    }
 }
 
 #[group]
