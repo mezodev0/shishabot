@@ -6,12 +6,10 @@ use reqwest::Client;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{Beatmap as Map, Beatmapset, GameMode, GameMods, Osu};
 use serenity::{
-    client::bridge::gateway::ShardMessenger,
     http::Http,
     model::{
         channel::Message,
         id::{ChannelId, UserId},
-        prelude::Activity,
     },
     prelude::{RwLock, TypeMap},
 };
@@ -47,13 +45,13 @@ type AttachmentParseResult = Result<AttachmentParseSuccess, AttachmentParseError
 
 #[derive(Clone, Debug)]
 pub struct Data {
+    pub input_channel: ChannelId,
+    pub output_channel: ChannelId,
     pub path: String,
     pub replay: Replay,
-    pub channel: ChannelId,
-    pub user: UserId,
     pub replay_params: String,
-    shard: ShardMessenger,
     server_prefixes: Vec<String>,
+    pub user: UserId,
 }
 
 pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Arc<ReplayQueue>) {
@@ -72,12 +70,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
     loop {
         let replay_data = queue.front().await;
-
         let replay_path = replay_data.path;
         let replay_file = replay_data.replay;
         let replay_user = replay_data.user;
-        let replay_channel = replay_data.channel;
-        let shard = replay_data.shard;
+        let replay_channel = replay_data.output_channel;
+        let input_channel = replay_data.input_channel;
         let server_prefixes = replay_data.server_prefixes;
 
         let mapset = match replay_file.beatmap_hash.as_deref() {
@@ -89,13 +86,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                         send_error_message(
                             &http,
-                            replay_channel,
+                            input_channel,
                             replay_user,
                             "the mapset is missing in the map",
                         )
                         .await;
-
-                        shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                         queue.default_status().await;
                         queue.pop().await;
@@ -109,13 +104,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                     send_error_message(
                         &http,
-                        replay_channel,
+                        input_channel,
                         replay_user,
                         format!("failed to get the map with hash: `{}`", &hash).as_str(),
                     )
                     .await;
-
-                    shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                     queue.default_status().await;
                     queue.pop().await;
@@ -127,21 +120,17 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     "couldn't find hash in your replay file",
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
                 continue;
             }
         };
-
-        shard.set_activity(Some(Activity::watching("!!help - Downloading replay")));
 
         let mapset_id = mapset.mapset_id;
         info!("Started map download");
@@ -152,13 +141,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
             send_error_message(
                 &http,
-                replay_channel,
+                input_channel,
                 replay_user,
                 format!("failed to download map: {}", why).as_str(),
             )
             .await;
-
-            shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
             queue.default_status().await;
             queue.pop().await;
@@ -185,13 +172,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     "there was an error resolving the beatmap path",
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
@@ -216,7 +201,6 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             }
         }
 
-        shard.set_activity(Some(Activity::watching("!!help - Parsing replay")));
         info!("Started replay parsing");
         queue.update_status().await;
 
@@ -236,13 +220,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     format!("failed to parse replay: {}", err).as_str(),
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
@@ -259,13 +241,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     "there was an error reading the log file",
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
@@ -283,22 +263,17 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     "there was an error while trying to create the streamable title",
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
                 continue;
             }
         };
-
-        let activity = "!!help - Uploading replay to streamable";
-        shard.set_activity(Some(Activity::watching(activity)));
 
         info!("Started upload to streamable");
         queue.update_status().await;
@@ -310,13 +285,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     "failed to upload to streamable",
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
@@ -334,13 +307,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                     send_error_message(
                         &http,
-                        replay_channel,
+                        input_channel,
                         replay_user,
                         "there was an error while trying to retrieve the video's ready status",
                     )
                     .await;
-
-                    shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                     queue.default_status().await;
                     queue.pop().await;
@@ -352,13 +323,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
                 send_error_message(
                     &http,
-                    replay_channel,
+                    input_channel,
                     replay_user,
                     "failed to upload the replay within 5 minutes",
                 )
                 .await;
-
-                shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
 
                 queue.default_status().await;
                 queue.pop().await;
@@ -373,7 +342,6 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
         let msg_fut = replay_channel.send_message(&http, |m| m.content(content));
 
-        shard.set_activity(Some(Activity::watching("!!help - Waiting for replay")));
         if let Err(why) = msg_fut.await {
             let err = Error::new(why).context("failed to send streamable link");
             warn!("{:?}", err);
@@ -420,7 +388,6 @@ async fn await_video_ready(streamable: &StreamableApi, shortcode: &str) -> Resul
 
 pub async fn parse_attachment_replay(
     msg: &Message,
-    shard_messenger: ShardMessenger,
     ctx_data: &RwLock<TypeMap>,
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
@@ -495,13 +462,13 @@ pub async fn parse_attachment_replay(
     };
 
     let replay_data = Data {
+        input_channel: msg.channel_id,
+        output_channel,
         path: format!("../Downloads/{}", &attachment.filename),
         replay,
-        channel: output_channel,
-        user: msg.author.id,
         replay_params: msg.content.to_string(),
-        shard: shard_messenger,
         server_prefixes: prefixes.unwrap_or_else(|| vec![DEFAULT_PREFIX.to_string()]),
+        user: msg.author.id,
     };
 
     ctx_data
@@ -777,11 +744,11 @@ fn check_server_prefix(server_prefixes: Vec<String>, params: &str) -> bool {
 
 async fn send_error_message(
     http: &Arc<Http>,
-    replay_channel: ChannelId,
+    channel: ChannelId,
     replay_user: UserId,
     content: &str,
 ) {
-    if let Err(err) = replay_channel
+    if let Err(err) = channel
         .send_message(&http, |m| {
             m.content(format!("<@{}>, {}", replay_user, content))
         })

@@ -116,14 +116,15 @@ struct Handler;
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
-        ctx.set_activity(Activity::watching("!!help - Waiting for replay"))
-            .await;
+        ctx.set_activity(Activity::playing(format!(
+            "in {} servers | !!help",
+            ctx.cache.guilds().len()
+        )))
+        .await;
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        let shard = ctx.shard.clone();
-
-        match parse_attachment_replay(&msg, shard, &ctx.data).await {
+        match parse_attachment_replay(&msg, &ctx.data).await {
             Ok(AttachmentParseSuccess::NothingToDo) => {}
             Ok(AttachmentParseSuccess::BeingProcessed) => {
                 let reaction = ReactionType::Unicode("✅".to_string());
