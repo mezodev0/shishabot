@@ -86,9 +86,9 @@ async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                     })
                 })
                 .await?;
-        } else {
-            msg.reply(&ctx, "You need to mention 2 channels!").await?;
         }
+    } else {
+        msg.reply(&ctx, "You need to mention 2 channels!").await?;
     }
 
     Ok(())
