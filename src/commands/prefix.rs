@@ -7,7 +7,7 @@ use serenity::{
 };
 use std::{collections::hash_map::Entry, fmt::Write};
 
-use crate::{server_settings_struct::Server, ServerSettings, DEFAULT_PREFIX};
+use crate::{server_settings::Server, ServerSettings, DEFAULT_PREFIX};
 
 #[command]
 #[description = "Adjust prefixes in a server"]
@@ -29,7 +29,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 Entry::Occupied(e) => &mut e.into_mut().prefixes,
                 Entry::Vacant(e) => {
                     let server = Server {
-                        replay_channel: ChannelId(0),
+                        input_channel: ChannelId(0),
                         output_channel: ChannelId(0),
                         prefixes: Vec::new(),
                     };

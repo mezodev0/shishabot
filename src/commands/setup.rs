@@ -1,7 +1,7 @@
 use std::collections::hash_map::Entry;
 
 use crate::checks::PERMISSIONS_CHECK;
-use crate::{server_settings_struct::Server, ServerSettings};
+use crate::{server_settings::Server, ServerSettings};
 use anyhow::{Context, Error};
 use serenity::builder::ParseValue;
 use serenity::utils::Color;
@@ -34,11 +34,11 @@ async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                 .servers
                 .entry(guild_id)
                 .and_modify(|server| {
-                    server.replay_channel = id1;
+                    server.input_channel = id1;
                     server.output_channel = id2;
                 })
                 .or_insert_with(|| Server {
-                    replay_channel: id1,
+                    input_channel: id1,
                     output_channel: id2,
                     prefixes: Vec::new(),
                 });
@@ -74,7 +74,7 @@ async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                         ))
                         .description(format!(
                             "**Input Channel:** <#{}>\n**Output Channel:** <#{}>",
-                            o.get().replay_channel,
+                            o.get().input_channel,
                             o.get().output_channel
                         ))
                         .footer(|f| {

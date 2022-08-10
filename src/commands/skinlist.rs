@@ -22,7 +22,7 @@ async fn skinlist(ctx: &Context, msg: &Message) -> CommandResult {
             skinlist,
             "{}) {}",
             counter,
-            file_name.to_string_lossy().replace("_", " ")
+            file_name.to_string_lossy().replace('_', " ")
         );
     }
 

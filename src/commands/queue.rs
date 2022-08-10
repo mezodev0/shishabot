@@ -40,7 +40,7 @@ async fn queue(ctx: &Context, msg: &Message) -> CommandResult {
                 replay_data
                     .path
                     .replace("../Downloads/", "")
-                    .replace("_", " ")
+                    .replace('_', " ")
                     .replace(".osr", ""),
                 replay_data.user,
                 if idx == 1 {
