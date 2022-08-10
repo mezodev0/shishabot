@@ -395,33 +395,43 @@ pub async fn parse_attachment_replay(
         Some(_) | None => return Ok(AttachmentParseSuccess::NothingToDo),
     };
 
-    let guild_id = match msg.guild_id {
-        Some(guild_id) => guild_id,
-        None => return Ok(AttachmentParseSuccess::NothingToDo),
-    };
+    let guild_id;
+    let channel_opt;
+    let prefixes;
+    let output_channel;
 
-    let channel_opt = {
-        let data = ctx_data.read().await;
-        let settings = data.get::<ServerSettings>().unwrap();
+    if msg.is_private() {
+        output_channel = msg.channel_id;
+        prefixes = None;
+    } else {
+        guild_id = match msg.guild_id {
+            Some(guild_id) => guild_id,
+            None => return Ok(AttachmentParseSuccess::NothingToDo),
+        };
 
-        settings
-            .servers
-            .get(&guild_id)
-            .filter(|s| s.replay_channel == msg.channel_id)
-            .map(|s| s.output_channel)
-    };
+        channel_opt = {
+            let data = ctx_data.read().await;
+            let settings = data.get::<ServerSettings>().unwrap();
 
-    let prefixes = {
-        let data = ctx_data.read().await;
-        let settings = data.get::<ServerSettings>().unwrap();
+            settings
+                .servers
+                .get(&guild_id)
+                .filter(|s| s.input_channel == msg.channel_id)
+                .map(|s| s.output_channel)
+        };
 
-        settings.servers.get(&guild_id).map(|s| s.prefixes.clone())
-    };
+        prefixes = {
+            let data = ctx_data.read().await;
+            let settings = data.get::<ServerSettings>().unwrap();
 
-    let output_channel = match channel_opt {
-        Some(channel_id) => channel_id,
-        None => return Ok(AttachmentParseSuccess::NothingToDo),
-    };
+            settings.servers.get(&guild_id).map(|s| s.prefixes.clone())
+        };
+
+        output_channel = match channel_opt {
+            Some(channel_id) => channel_id,
+            None => return Ok(AttachmentParseSuccess::NothingToDo),
+        };
+    }
 
     let bytes = match attachment.download().await {
         Ok(bytes) => bytes,
@@ -590,24 +600,20 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         Err(err) => return Err(anyhow!("failed to read danser logs: {err}")),
     };
 
-    let line;
-
-    if let Some(l) = file.lines().find(|line| line.contains("Playing:")) {
-        line = l;
+    let line = if let Some(l) = file.lines().find(|line| line.contains("Playing:")) {
+        l
     } else {
         return Err(anyhow!("expected `Playing:` in danser logs"));
-    }
+    };
 
-    let map_without_artist;
-
-    if let Some(m) = line.splitn(4, ' ').last() {
-        map_without_artist = m;
+    let map_without_artist = if let Some(m) = line.splitn(4, ' ').last() {
+        m
     } else {
         return Err(anyhow!(
             "expected at least 5 words in danser log line `{}`",
             line
         ));
-    }
+    };
 
     let items_dir = format!("../Songs/{}", mapset_id);
 
@@ -714,24 +720,20 @@ async fn get_title() -> Result<String> {
         Err(err) => return Err(anyhow!("failed to read danser logs: {err}")),
     };
 
-    let line;
-
-    if let Some(l) = file.lines().find(|line| line.contains("Playing:")) {
-        line = l;
+    let line = if let Some(l) = file.lines().find(|line| line.contains("Playing:")) {
+        l
     } else {
         return Err(anyhow!("expected `Playing:` in danser logs"));
-    }
+    };
 
-    let map_without_artist;
-
-    if let Some(m) = line.splitn(4, ' ').last() {
-        map_without_artist = m;
+    let map_without_artist = if let Some(m) = line.splitn(4, ' ').last() {
+        m
     } else {
         return Err(anyhow!(
             "expected at least 5 words in danser log line `{}`",
             line
         ));
-    }
+    };
 
     Ok(map_without_artist.to_string())
 }

@@ -35,7 +35,7 @@ mod checks;
 mod commands;
 mod logging;
 mod process_replays;
-pub(crate) mod server_settings_struct;
+pub(crate) mod server_settings;
 mod streamable_wrapper;
 mod util;
 
@@ -66,14 +66,7 @@ pub enum ReplayStatus {
 
 impl ReplayQueue {
     pub fn new() -> Self {
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-
-        Self {
-            queue: Mutex::new(VecDeque::new()),
-            tx,
-            rx: Mutex::new(rx),
-            status: Mutex::new(ReplayStatus::Waiting),
-        }
+        Self::default()
     }
 
     pub async fn push(&self, data: Data) {
@@ -106,9 +99,22 @@ impl ReplayQueue {
     }
 }
 
+impl Default for ReplayQueue {
+    fn default() -> Self {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<()>();
+
+        Self {
+            queue: Mutex::new(VecDeque::new()),
+            tx,
+            rx: Mutex::new(rx),
+            status: Mutex::new(ReplayStatus::Waiting),
+        }
+    }
+}
+
 struct ServerSettings;
 impl TypeMapKey for ServerSettings {
-    type Value = server_settings_struct::Root;
+    type Value = server_settings::Root;
 }
 
 struct Handler;
