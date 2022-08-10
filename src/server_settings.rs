@@ -21,7 +21,7 @@ pub struct Root {
 
 #[derive(Clone, Debug)]
 pub struct Server {
-    pub replay_channel: ChannelId,
+    pub input_channel: ChannelId,
     pub output_channel: ChannelId,
     pub prefixes: Vec<String>,
 }
@@ -29,7 +29,7 @@ pub struct Server {
 #[derive(Deserialize)]
 struct RawServer {
     server_id: GuildId,
-    replay_channel: ChannelId,
+    input_channel: ChannelId,
     output_channel: ChannelId,
     #[serde(default)]
     prefixes: Vec<String>,
@@ -50,13 +50,13 @@ impl<'de> Visitor<'de> for ServersVisitor {
         while let Some(raw) = seq.next_element()? {
             let RawServer {
                 server_id,
-                replay_channel,
+                input_channel,
                 output_channel,
                 prefixes,
             } = raw;
 
             let server = Server {
-                replay_channel,
+                input_channel,
                 output_channel,
                 prefixes,
             };
@@ -83,7 +83,7 @@ impl Serialize for BorrowedRawServer<'_> {
             s.serialize_struct("RawServer", 4 - self.server.prefixes.is_empty() as usize)?;
 
         raw.serialize_field("server_id", &self.server_id)?;
-        raw.serialize_field("replay_channel", &self.server.replay_channel)?;
+        raw.serialize_field("input_channel", &self.server.input_channel)?;
         raw.serialize_field("output_channel", &self.server.output_channel)?;
 
         if !self.server.prefixes.is_empty() {
