@@ -20,10 +20,11 @@ use crate::commands::Settings;
 !!settings cursor_size `[0.1 - 2.0]` - changes the cursor size
 !!settings cursor_ripple `[on/off]` - enable/disable cursor ripple
 
-**Background**
+**Beatmap**
 !!settings storyboard `[on/off]` - enable/disable storyboard
 !!settings background_video `[on/off]` - enable/disable background video
 !!settings dim `[0.0 - 1.0]` - change the background dim
+!!settings scoreboard `[on/off]` - enable/disable the scoreboard
 
 **Audio**
 !!settings music_volume `[0 - 100]` - change the music volume
@@ -31,9 +32,11 @@ use crate::commands::Settings;
 !!settings beatmap_hitsounds `[on/off]` - enable/disable beatmap hitsounds
 
 **PP Counter**
+!!settings show_pp_counter `[on/off]` - enable/disable pp counter
 !!settings pp_counter_decimals `[0 - 3]` - changes the amount of decimals displayed on the pp counter
 
 **Hit Error Meter**
+!!settings show_hit_error_meter `[on/off]` - enable/disable hit error meter
 !!settings hit_error_decimals `[0 - 3]` - changes the amount of decimals displayed on the hit error meter
 
 **Aim Error Meter**
@@ -134,10 +137,10 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                     .description(format!(
                         "**Skin**\n`skin`: {}\n\n\
                         **Cursor**\n`cursor size`: {}\n`cursor ripple`: {}\n\n\
-                        **Beatmap**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n\n\
+                        **Beatmap**\n`storyboard`: {}\n`background video`: {}\n`dim`: {}\n`scoreboard`: {}\n\n\
                         **Audio**\n`music volume`: {}%\n`hitsound volume`: {}%\n`beatmap hitsounds`: {}\n\n\
-                        **PP Counter**\n`pp counter decimals`: {}\n\n\
-                        **Hit Error Meter**\n`hit error decimals`: {}\n\n\
+                        **PP Counter**\n`show pp counter`: {}\n`pp counter decimals`: {}\n\n\
+                        **Hit Error Meter**\n`show hit error meter`: {}\n`hit error decimals`: {}\n\n\
                         **Aim Error Meter**\n`show aim error meter`: {}\n`aim error meter ur decimals`: {}\n\n\
                         **Hit Counter**\n`show hit counter`: {}\n`show sliderbreaks`: {}\n\n\
                         **Strain Graph**\n`show strain graph`: {}",
@@ -159,6 +162,11 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                             "off"
                         },
                         settings.playfield.background.dim.normal,
+                        if settings.gameplay.score_board.show {
+                            "on"
+                        } else {
+                            "off"
+                        },
                         (settings.audio.music_volume * 100.0),
                         (settings.audio.sample_volume * 100.0),
                         if !settings.audio.ignore_beatmap_samples {
@@ -166,7 +174,17 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                         } else {
                             "off"
                         },
+                        if settings.gameplay.pp_counter.show {
+                            "on"
+                        } else {
+                            "off"
+                        },
                         settings.gameplay.pp_counter.decimals,
+                        if settings.gameplay.hit_error_meter.show {
+                            "on"
+                        } else {
+                            "off"
+                        },
                         settings.gameplay.hit_error_meter.unstable_rate_decimals,
                         if settings.gameplay.aim_error_meter.show {
                             "on"
@@ -266,7 +284,7 @@ async fn edit_setting(
                 return Err(EditSettingsError::MissingSkin);
             }
         }
-        "cursor_size" => {
+        "cursor_size" | "cursorsize" => {
             let value_as_number: f64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
@@ -276,7 +294,7 @@ async fn edit_setting(
 
             settings.skin.cursor.scale = value_as_number;
         }
-        "cursor_ripple" => {
+        "cursor_ripple" | "cursorripple" => {
             settings.cursor.cursor_ripples =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
@@ -284,7 +302,7 @@ async fn edit_setting(
             settings.playfield.background.load_storyboards =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
-        "background_video" | "video" => {
+        "background_video" | "backgroundvideo" | "video" => {
             settings.playfield.background.load_videos =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
@@ -298,7 +316,11 @@ async fn edit_setting(
 
             settings.playfield.background.dim.normal = value_as_number;
         }
-        "music_volume" | "music" => {
+        "leaderboard" | "scoreboard" => {
+            settings.gameplay.score_board.show =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "music_volume" | "musicvolume" | "music" => {
             let value_as_number: f64 = value
                 .trim_end_matches('%')
                 .parse()
@@ -310,7 +332,7 @@ async fn edit_setting(
 
             settings.audio.music_volume = value_as_number / 100.0;
         }
-        "hitsound_volume" | "hitsound" => {
+        "hitsound_volume" | "hitsoundvolume" | "hitsound" => {
             let value_as_number: f64 = value
                 .trim_end_matches('%')
                 .parse()
@@ -322,11 +344,15 @@ async fn edit_setting(
 
             settings.audio.sample_volume = value_as_number / 100.0;
         }
-        "beatmap_hitsounds" => {
+        "beatmap_hitsounds" | "beatmaphitsounds" => {
             settings.audio.ignore_beatmap_samples =
                 matches!(value.to_uppercase().as_str(), "OFF" | "FALSE" | "NO");
         }
-        "pp_counter_decimals" => {
+        "show_pp_counter" | "showppcounter" | "pp_counter" => {
+            settings.gameplay.pp_counter.show =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "pp_counter_decimals" | "ppcounterdecimals" => {
             let value_as_number: u64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
@@ -336,7 +362,11 @@ async fn edit_setting(
 
             settings.gameplay.pp_counter.decimals = value_as_number;
         }
-        "hit_error_decimals" => {
+        "show_hit_error_meter" | "showhiterrormeter" | "hit_error_meter" => {
+            settings.gameplay.hit_error_meter.show =
+                matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
+        }
+        "hit_error_decimals" | "hiterrordecimals" => {
             let value_as_number: u64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
@@ -346,7 +376,7 @@ async fn edit_setting(
 
             settings.gameplay.hit_error_meter.unstable_rate_decimals = value_as_number;
         }
-        "aim_error_meter_ur_decimals" => {
+        "aim_error_meter_ur_decimals" | "aimerrormeterurdecimals" => {
             let value_as_number: u64 =
                 value.parse().map_err(|_| EditSettingsError::InvalidValue)?;
 
@@ -356,19 +386,19 @@ async fn edit_setting(
 
             settings.gameplay.aim_error_meter.unstable_rate_decimals = value_as_number;
         }
-        "show_aim_error_meter" | "aim_error_meter" => {
+        "show_aim_error_meter" | "showaimerrormeter" | "aim_error_meter" => {
             settings.gameplay.aim_error_meter.show =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
-        "show_hit_counter" | "hit_counter" => {
+        "show_hit_counter" | "showhitcounter" | "hit_counter" => {
             settings.gameplay.hit_counter.show =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
-        "show_sliderbreaks" => {
+        "show_sliderbreaks" | "showsliderbreaks" | "sliderbreaks" => {
             settings.gameplay.hit_counter.show_sliderbreaks =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
-        "show_strain_graph" | "strain_graph" => {
+        "show_strain_graph" | "showstraingraph" | "strain_graph" => {
             settings.gameplay.strain_graph.show =
                 matches!(value.to_uppercase().as_str(), "ON" | "TRUE" | "YES");
         }
