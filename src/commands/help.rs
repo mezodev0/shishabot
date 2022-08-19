@@ -24,5 +24,6 @@ async fn help(
     owners: HashSet<UserId>,
 ) -> CommandResult {
     let _ = help_commands::with_embeds(ctx, msg, args, help_options, groups, owners).await;
+
     Ok(())
 }
