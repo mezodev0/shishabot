@@ -54,7 +54,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
             if let Err(why) = tokio::fs::write("src/server_settings.json", edited_settings).await {
                 let err = Error::new(why).context("failed to edit server specific settings");
-                warn!("{:?}", err);
+                warn!("{err:?}");
             }
 
             let mut content = "Successfully added prefixes.\n".to_owned();
@@ -103,7 +103,7 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     {
                         let err =
                             Error::new(why).context("failed to edit server specific settings");
-                        warn!("{:?}", err);
+                        warn!("{err:?}");
                     }
 
                     prefixes

@@ -7,7 +7,9 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0" }
+base64 = "0.13.0"
 bytes = { version = "1.0" }
+chrono = "0.4"
 dotenv = { version = "0.15" }
 flexi_logger = { version = "0.22", features = ["colors", "compress"] }
 lazy_static = { version = "1.4" }
@@ -25,5 +27,3 @@ thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["macros", "parsing"] }
 tokio = { version = "1.0",default-features = true, features = ["macros", "process", "rt-multi-thread"] }
 zip = { version = "0.5" }
-base64 = "0.13.0"
-chrono = "0.4"

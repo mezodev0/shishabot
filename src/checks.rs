@@ -22,24 +22,18 @@ async fn permissions_check(
     if let Some(guild) = ctx.cache.guild(guild_id) {
         let guild_channel = match msg.channel_id.to_channel(&ctx).await {
             Ok(Channel::Guild(channel)) => channel,
-            Err(err) => return Err(Reason::Log(format!("couldn't fetch channel: {:?}", err))),
+            Err(err) => return Err(Reason::Log(format!("couldn't fetch channel: {err:?}"))),
             Ok(_) => todo!("private or group channel"),
         };
 
-        // if let Some(channel) = &ctx.cache.guild_channel(msg.channel_id) {
         let member = match guild_id.member(&ctx, &msg.author.id).await {
             Ok(member) => member,
-            Err(err) => return Err(Reason::Log(format!("couldn't fetch member: {:?}", err))),
+            Err(err) => return Err(Reason::Log(format!("couldn't fetch member: {err:?}"))),
         };
 
         let perms = match guild.user_permissions_in(&guild_channel, &member) {
             Ok(perms) => perms,
-            Err(err) => {
-                return Err(Reason::Log(format!(
-                    "couldn't fetch permissions: {:?}",
-                    err
-                )))
-            }
+            Err(err) => return Err(Reason::Log(format!("couldn't fetch permissions: {err:?}"))),
         };
 
         if !perms
@@ -49,6 +43,7 @@ async fn permissions_check(
             return Ok(());
         }
     }
+
     Err(Reason::User(
         "Lacking required permission to run command".to_string(),
     ))
