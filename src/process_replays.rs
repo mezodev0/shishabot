@@ -22,8 +22,8 @@ use tokio::{
 use zip::ZipArchive;
 
 use crate::{
-    streamable_wrapper::StreamableApi, util::levenshtein_similarity, ReplayHandler, ReplayQueue,
-    ServerSettings, DEFAULT_PREFIX,
+    replay_queue::ReplayStatus, streamable_wrapper::StreamableApi, util::levenshtein_similarity,
+    ReplayHandler, ReplayQueue, ServerSettings, DEFAULT_PREFIX,
 };
 
 pub enum AttachmentParseSuccess {
@@ -69,13 +69,15 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
         .unwrap();
 
     loop {
-        let replay_data = queue.front().await;
-        let replay_path = replay_data.path;
-        let replay_file = replay_data.replay;
-        let replay_user = replay_data.user;
-        let replay_channel = replay_data.output_channel;
-        let input_channel = replay_data.input_channel;
-        let server_prefixes = replay_data.server_prefixes;
+        let Data {
+            input_channel,
+            output_channel: replay_channel,
+            path: replay_path,
+            replay: replay_file,
+            replay_params,
+            server_prefixes,
+            user: replay_user,
+        } = queue.peek().await;
 
         let mapset = match replay_file.beatmap_hash.as_deref() {
             Some(hash) => match osu.beatmap().checksum(hash).await {
@@ -92,8 +94,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                         )
                         .await;
 
-                        queue.default_status().await;
-                        queue.pop().await;
+                        queue.reset_peek().await;
                         continue;
                     }
                 },
@@ -110,8 +111,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     )
                     .await;
 
-                    queue.default_status().await;
-                    queue.pop().await;
+                    queue.reset_peek().await;
                     continue;
                 }
             },
@@ -126,15 +126,14 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
 
         let mapset_id = mapset.mapset_id;
         info!("Started map download");
-        queue.update_status().await;
+        queue.set_status(ReplayStatus::Downloading).await;
 
         if let Err(why) = download_mapset(mapset_id, &client).await {
             warn!("{:?}", why);
@@ -147,8 +146,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             )
             .await;
 
-            queue.default_status().await;
-            queue.pop().await;
+            queue.reset_peek().await;
             continue;
         }
 
@@ -178,8 +176,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
@@ -193,16 +190,17 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
 
-        if check_server_prefix(server_prefixes, &replay_data.replay_params) {
-            let params = replay_data.replay_params.split(' ').collect::<Vec<&str>>();
+        if check_server_prefix(server_prefixes, &replay_params) {
+            let params: Vec<_> = replay_params.split(' ').collect();
             command.args(["-start", params[1]]);
+
             if params.len() == 3 {
                 command.args(["-end", params[2]]);
             }
         }
 
         info!("Started replay parsing");
-        queue.update_status().await;
+        queue.set_status(ReplayStatus::Processing).await;
 
         match command.output().await {
             Ok(output) => {
@@ -226,8 +224,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         }
@@ -247,8 +244,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
@@ -269,14 +265,13 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
 
         info!("Started upload to streamable");
-        queue.update_status().await;
+        queue.set_status(ReplayStatus::Uploading).await;
 
         let shortcode = match streamable.upload_video(streamable_title, &filepath).await {
             Ok(response) => response.shortcode,
@@ -291,8 +286,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
@@ -313,8 +307,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     )
                     .await;
 
-                    queue.default_status().await;
-                    queue.pop().await;
+                    queue.reset_peek().await;
                     continue;
                 }
             }
@@ -329,8 +322,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         }
@@ -347,8 +339,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             warn!("{:?}", err);
         }
 
-        queue.update_status().await;
-        queue.pop().await;
+        queue.reset_peek().await;
     }
 }
 
