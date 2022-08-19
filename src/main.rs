@@ -14,7 +14,7 @@ use std::{
     future::Future,
     io::Write,
     iter,
-    path::Path,
+    path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
 };
@@ -285,6 +285,13 @@ async fn create_missing_folders_and_files() -> Result<()> {
     fs::create_dir_all("../Skins").context("failed to create `../Skins`")?;
     fs::create_dir_all("../Replays").context("failed to create `../Replays`")?;
     fs::create_dir_all("../Downloads").context("failed to create `../Downloads`")?;
+
+    if !Path::new("../danser").exists() {
+        fs::create_dir_all("../danser").context("failed to create `../danser`")?;
+        if PathBuf::from("../danser").read_dir()?.next().is_none() {
+            info!("danser not found! please download from https://github.com/Wieku/danser-go/releases/")
+        }
+    }
 
     if !Path::new("src/server_settings.json").exists() {
         let mut file = File::create("src/server_settings.json")
