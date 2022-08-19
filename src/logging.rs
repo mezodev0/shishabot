@@ -3,14 +3,12 @@ use flexi_logger::{
     Age, Cleanup, Criterion, DeferredNow, Duplicate, FileSpec, Logger, LoggerHandle, Naming,
 };
 use log::Record;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use std::io::{Result as IoResult, Write};
 use time::{format_description::FormatItem, macros::format_description};
 
-lazy_static! {
-    static ref LOG_DATE_FORMAT: &'static [FormatItem<'static>] =
-        format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
-}
+static LOG_DATE_FORMAT: Lazy<&'static [FormatItem<'static>]> =
+    Lazy::new(|| format_description!("[year]-[month]-[day] [hour]:[minute]:[second]"));
 
 static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 
