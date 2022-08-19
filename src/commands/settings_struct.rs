@@ -17,7 +17,7 @@ pub struct Settings {
     pub recording: Recording,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct General {
     pub osu_songs_dir: String,
@@ -26,7 +26,7 @@ pub struct General {
     pub unpack_osz_files: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Graphics {
     pub width: i64,
@@ -45,7 +45,7 @@ pub struct Graphics {
     pub experimental: Experimental,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Experimental {
     pub use_persistent_buffers: bool,
@@ -68,7 +68,7 @@ pub struct Audio {
     pub linux_unix: LinuxUnix,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct LinuxUnix {
     pub bass_playback_buffer_length: i64,
@@ -77,7 +77,7 @@ pub struct LinuxUnix {
     pub bass_device_update_period: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Input {
     pub left_key: String,
@@ -132,7 +132,7 @@ pub struct HitErrorMeter {
     pub unstable_rate_scale: f64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct AimErrorMeter {
     pub show: bool,
@@ -151,7 +151,7 @@ pub struct AimErrorMeter {
     pub angle_normalized: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Score {
     pub show: bool,
@@ -165,7 +165,7 @@ pub struct Score {
     pub show_grade_always: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Container {
     pub show: bool,
@@ -225,7 +225,7 @@ pub struct HitCounter {
     pub show_sliderbreaks: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ScoreBoard {
     pub show: bool,
@@ -241,7 +241,7 @@ pub struct ScoreBoard {
     pub explosion_scale: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Mods {
     pub show: bool,
@@ -345,7 +345,7 @@ pub struct Objects {
     pub colors: Colors2,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Sliders {
     pub force_slider_ball_texture: bool,
@@ -359,14 +359,14 @@ pub struct Sliders {
     pub snaking: Snaking,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Quality {
     pub circle_level_of_detail: i64,
     pub path_level_of_detail: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Snaking {
     #[serde(rename = "In")]
@@ -439,7 +439,7 @@ pub struct Playfield {
     pub bloom: Bloom,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SeizureWarning {
     pub enabled: bool,
@@ -466,7 +466,7 @@ pub struct Alpha {
     pub breaks: f64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Parallax {
     pub amount: i64,
@@ -480,7 +480,7 @@ pub struct Blur {
     pub values: Alpha,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Triangles {
     pub enabled: bool,
@@ -523,7 +523,7 @@ pub struct CursorDance {
     pub mover_settings: MoverSettings,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Mover {
     pub mover: String,
@@ -531,7 +531,7 @@ pub struct Mover {
     pub random_slider_dance: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Spinner {
     pub mover: String,
@@ -551,7 +551,7 @@ pub struct MoverSettings {
     pub pippi: Vec<Pippi>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Bezier {
     pub aggressiveness: i64,
@@ -569,7 +569,7 @@ pub struct Flower {
     pub long_jump_on_equal_pos: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct HalfCircle {
     pub radius_multiplier: i64,
@@ -600,13 +600,13 @@ pub struct Momentum {
     pub distance_mult_out: f64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExGon {
     pub delay: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Linear {
     pub wait_for_preempt: bool,
@@ -622,7 +622,7 @@ pub struct Pippi {
     pub spinner_radius: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Knockout {
     pub mode: i64,
@@ -685,7 +685,7 @@ pub struct Recording {
     pub motion_blur: MotionBlur,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Libx264 {
     pub rate_control: String,
@@ -697,7 +697,7 @@ pub struct Libx264 {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Libx265 {
     pub rate_control: String,
@@ -708,7 +708,7 @@ pub struct Libx265 {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct H264Nvenc {
     pub rate_control: String,
@@ -720,7 +720,7 @@ pub struct H264Nvenc {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct HevcNvenc {
     pub rate_control: String,
@@ -731,7 +731,7 @@ pub struct HevcNvenc {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct H264Qsv {
     pub rate_control: String,
@@ -742,7 +742,7 @@ pub struct H264Qsv {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct HevcQsv {
     pub rate_control: String,
@@ -752,20 +752,20 @@ pub struct HevcQsv {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Custom {
     pub custom_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Aac {
     pub bitrate: String,
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Libmp3lame {
     pub rate_control: String,
@@ -773,7 +773,7 @@ pub struct Libmp3lame {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Libopus {
     pub rate_control: String,
@@ -781,14 +781,14 @@ pub struct Libopus {
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Flac {
     pub compression_level: i64,
     pub additional_options: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct CustomAudio {
     pub custom_options: String,
