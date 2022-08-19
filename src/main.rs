@@ -8,7 +8,6 @@ extern crate lazy_static;
 extern crate log;
 
 use std::{
-    collections::VecDeque,
     env,
     fs::{self, File},
     future::Future,
@@ -20,6 +19,7 @@ use std::{
 };
 
 use anyhow::{Error, Result};
+use replay_queue::ReplayQueue;
 use rosu_v2::Osu;
 use serenity::{
     async_trait,
@@ -35,81 +35,19 @@ mod checks;
 mod commands;
 mod logging;
 mod process_replays;
-pub(crate) mod server_settings;
+mod replay_queue;
+mod server_settings;
 mod streamable_wrapper;
 mod util;
 
 use commands::*;
 use process_replays::*;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 const DEFAULT_PREFIX: &str = "!!";
 
 struct ReplayHandler;
 impl TypeMapKey for ReplayHandler {
     type Value = Arc<ReplayQueue>;
-}
-pub struct ReplayQueue {
-    queue: Mutex<VecDeque<Data>>,
-    tx: UnboundedSender<()>,
-    rx: Mutex<UnboundedReceiver<()>>,
-    status: Mutex<ReplayStatus>,
-}
-
-#[derive(Copy, Clone)]
-pub enum ReplayStatus {
-    Waiting,
-    Downloading,
-    Processing,
-    Uploading,
-}
-
-impl ReplayQueue {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub async fn push(&self, data: Data) {
-        self.queue.lock().await.push_back(data);
-        let _ = self.tx.send(());
-    }
-
-    pub async fn pop(&self) -> Data {
-        return self.queue.lock().await.pop_front().unwrap();
-    }
-
-    pub async fn front(&self) -> Data {
-        let mut guard = self.rx.lock().await;
-        let _ = guard.recv().await;
-        return self.queue.lock().await.front().unwrap().to_owned();
-    }
-
-    pub async fn update_status(&self) {
-        let status = *self.status.lock().await;
-        match status {
-            ReplayStatus::Waiting => *self.status.lock().await = ReplayStatus::Downloading,
-            ReplayStatus::Downloading => *self.status.lock().await = ReplayStatus::Processing,
-            ReplayStatus::Processing => *self.status.lock().await = ReplayStatus::Uploading,
-            ReplayStatus::Uploading => *self.status.lock().await = ReplayStatus::Waiting,
-        }
-    }
-
-    pub async fn default_status(&self) {
-        *self.status.lock().await = ReplayStatus::Waiting;
-    }
-}
-
-impl Default for ReplayQueue {
-    fn default() -> Self {
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-
-        Self {
-            queue: Mutex::new(VecDeque::new()),
-            tx,
-            rx: Mutex::new(rx),
-            status: Mutex::new(ReplayStatus::Waiting),
-        }
-    }
 }
 
 struct ServerSettings;
