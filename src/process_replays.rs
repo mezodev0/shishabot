@@ -23,7 +23,7 @@ use zip::ZipArchive;
 
 use crate::{
     replay_queue::ReplayStatus, streamable_wrapper::StreamableApi, util::levenshtein_similarity,
-    ReplayHandler, ReplayQueue, ServerSettings, DEFAULT_PREFIX,
+    ReplayHandler, ReplayQueue, ServerSettings,
 };
 
 pub enum AttachmentParseSuccess {
@@ -49,8 +49,7 @@ pub struct Data {
     pub output_channel: ChannelId,
     pub path: String,
     pub replay: Replay,
-    pub replay_params: String,
-    server_prefixes: Vec<String>,
+    pub replay_params: Option<Vec<String>>,
     pub user: UserId,
 }
 
@@ -75,7 +74,6 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             path: replay_path,
             replay: replay_file,
             replay_params,
-            server_prefixes,
             user: replay_user,
         } = queue.peek().await;
 
@@ -190,12 +188,12 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
 
-        if check_server_prefix(server_prefixes, &replay_params) {
-            let params: Vec<_> = replay_params.split(' ').collect();
-            command.args(["-start", params[1]]);
-
-            if params.len() == 3 {
-                command.args(["-end", params[2]]);
+        if let Some(params) = replay_params {
+            if params[0] != "0" {
+                command.args(["-start", params[0].as_str()]);
+            }
+            if params[1] != "0" {
+                command.args(["-end", params[1].as_str()]);
             }
         }
 
@@ -380,6 +378,7 @@ async fn await_video_ready(streamable: &StreamableApi, shortcode: &str) -> Resul
 pub async fn parse_attachment_replay(
     msg: &Message,
     ctx_data: &RwLock<TypeMap>,
+    replay_params: Option<Vec<String>>,
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
         Some(a) if matches!(a.filename.split('.').last(), Some("osr")) => a,
@@ -388,12 +387,10 @@ pub async fn parse_attachment_replay(
 
     let guild_id;
     let channel_opt;
-    let prefixes;
     let output_channel;
 
     if msg.is_private() {
         output_channel = msg.channel_id;
-        prefixes = None;
     } else {
         guild_id = match msg.guild_id {
             Some(guild_id) => guild_id,
@@ -409,13 +406,6 @@ pub async fn parse_attachment_replay(
                 .get(&guild_id)
                 .filter(|s| s.input_channel == msg.channel_id)
                 .map(|s| s.output_channel)
-        };
-
-        prefixes = {
-            let data = ctx_data.read().await;
-            let settings = data.get::<ServerSettings>().unwrap();
-
-            settings.servers.get(&guild_id).map(|s| s.prefixes.clone())
         };
 
         output_channel = match channel_opt {
@@ -466,8 +456,7 @@ pub async fn parse_attachment_replay(
         output_channel,
         path: format!("../Downloads/{}", &attachment.filename),
         replay,
-        replay_params: msg.content.to_string(),
-        server_prefixes: prefixes.unwrap_or_else(|| vec![DEFAULT_PREFIX.to_string()]),
+        replay_params,
         user: msg.author.id,
     };
 
@@ -707,12 +696,6 @@ async fn get_title() -> Result<String> {
     };
 
     Ok(map_without_artist.to_string())
-}
-
-fn check_server_prefix(server_prefixes: Vec<String>, params: &str) -> bool {
-    server_prefixes
-        .iter()
-        .any(|p| params.starts_with(p) && params[p.len()..].starts_with("start"))
 }
 
 async fn send_error_message(
