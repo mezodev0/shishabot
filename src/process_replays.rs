@@ -22,7 +22,8 @@ use tokio::{
 use zip::ZipArchive;
 
 use crate::{
-    replay_queue::ReplayStatus, streamable_wrapper::StreamableApi, util::levenshtein_similarity,
+    replay_queue::ReplayStatus,
+    util::{levenshtein_similarity, StreamableApi},
     ReplayHandler, ReplayQueue, ServerSettings,
 };
 

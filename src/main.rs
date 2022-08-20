@@ -34,7 +34,6 @@ mod logging;
 mod process_replays;
 mod replay_queue;
 mod server_settings;
-mod streamable_wrapper;
 mod util;
 
 use commands::*;
