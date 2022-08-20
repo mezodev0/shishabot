@@ -65,7 +65,11 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        match parse_attachment_replay(&msg, &ctx.data).await {
+        if msg.content.contains("start") || msg.content.contains("end") {
+            return;
+        }
+
+        match parse_attachment_replay(&msg, &ctx.data, None).await {
             Ok(AttachmentParseSuccess::NothingToDo) => {}
             Ok(AttachmentParseSuccess::BeingProcessed) => {
                 let reaction = ReactionType::Unicode("✅".to_string());
@@ -112,7 +116,7 @@ impl EventHandler for Handler {
 struct General;
 
 #[group]
-#[commands(settings, skinlist, setup, queue)]
+#[commands(settings, skinlist, setup, queue, start, end)]
 struct Danser;
 
 #[tokio::main]
