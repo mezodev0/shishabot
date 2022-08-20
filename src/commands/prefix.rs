@@ -4,6 +4,7 @@ use serenity::{
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
     model::{channel::Message, id::ChannelId},
+    utils::Color,
 };
 use std::{collections::hash_map::Entry, fmt::Write};
 
@@ -74,7 +75,9 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             }
 
             msg.channel_id
-                .send_message(ctx, |m| m.embed(|e| e.description(content)))
+                .send_message(ctx, |m| {
+                    m.embed(|e| e.description(content).color(Color::new(15785176)))
+                })
                 .await?;
 
             Ok(())
@@ -132,7 +135,9 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 }
 
                 msg.channel_id
-                    .send_message(ctx, |m| m.embed(|e| e.description(content)))
+                    .send_message(ctx, |m| {
+                        m.embed(|e| e.description(content).color(Color::new(15785176)))
+                    })
                     .await?;
             } else {
                 let content = format!(
@@ -141,7 +146,9 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 );
 
                 msg.channel_id
-                    .send_message(ctx, |m| m.embed(|e| e.description(content)))
+                    .send_message(ctx, |m| {
+                        m.embed(|e| e.description(content).color(Color::new(15785176)))
+                    })
                     .await?;
             }
 
@@ -171,7 +178,9 @@ async fn prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         }
 
                         msg.channel_id
-                            .send_message(ctx, |m| m.embed(|e| e.description(content)))
+                            .send_message(ctx, |m| {
+                                m.embed(|e| e.description(content).color(Color::new(15785176)))
+                            })
                             .await?;
 
                         Ok(())
@@ -193,7 +202,9 @@ async fn no_prefix(ctx: &Context, msg: &Message) -> CommandResult {
     );
 
     msg.channel_id
-        .send_message(ctx, |m| m.embed(|e| e.description(content)))
+        .send_message(ctx, |m| {
+            m.embed(|e| e.description(content).color(Color::new(15785176)))
+        })
         .await?;
 
     Ok(())
