@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-pub struct StreamableApi {
+pub struct _StreamableApi {
     pub client: Client,
 }
 
@@ -26,8 +26,8 @@ pub struct UploadResponse {
     pub status: i8,
 }
 
-impl StreamableApi {
-    pub async fn new(username: String, password: String) -> Result<Self> {
+impl _StreamableApi {
+    pub async fn _new(username: String, password: String) -> Result<Self> {
         let mut headers = HeaderMap::new();
         let value = format!("Basic {}", encode(format!("{username}:{password}")));
         headers.insert(AUTHORIZATION, HeaderValue::from_str(&value)?);
@@ -36,15 +36,15 @@ impl StreamableApi {
         Ok(Self { client })
     }
 
-    pub async fn upload_video(&self, title: String, filepath: &str) -> Result<UploadResponse> {
+    pub async fn _upload_video(&self, title: String, filepath: &str) -> Result<UploadResponse> {
         let url = "https://api.streamable.com/upload";
-        let resp = self.api_request(url, title, filepath).await?;
+        let resp = self._api_request(url, title, filepath).await?;
         let json = resp.json::<UploadResponse>().await?;
 
         Ok(json)
     }
 
-    pub async fn check_status_code(&self, shortcode: &str) -> Result<i8> {
+    pub async fn _check_status_code(&self, shortcode: &str) -> Result<i8> {
         let url = format!("https://api.streamable.com/videos/{shortcode}");
         let resp = self.client.get(url).send().await?.bytes().await?;
         let custom_resp: StatusResponse = serde_json::from_slice(&resp)?;
@@ -52,8 +52,8 @@ impl StreamableApi {
         Ok(custom_resp.status)
     }
 
-    pub async fn api_request(&self, url: &str, data: String, files: &str) -> Result<Response> {
-        let file = readfile(&files)
+    pub async fn _api_request(&self, url: &str, data: String, files: &str) -> Result<Response> {
+        let file = _read_file(&files)
             .await
             .with_context(|| format!("failed to load file for path `{files}`"))?;
 
@@ -67,7 +67,7 @@ impl StreamableApi {
     }
 }
 
-pub async fn readfile<T: AsRef<Path>>(path: T) -> Result<Part> {
+pub async fn _read_file<T: AsRef<Path>>(path: T) -> Result<Part> {
     let path = path.as_ref();
 
     let file_name = path
