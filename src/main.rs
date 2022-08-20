@@ -10,7 +10,7 @@ use std::{
     future::Future,
     io::Write,
     iter,
-    path::Path,
+    path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
 };
@@ -65,7 +65,11 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        match parse_attachment_replay(&msg, &ctx.data).await {
+        if msg.content.contains("start") || msg.content.contains("end") {
+            return;
+        }
+
+        match parse_attachment_replay(&msg, &ctx.data, None).await {
             Ok(AttachmentParseSuccess::NothingToDo) => {}
             Ok(AttachmentParseSuccess::BeingProcessed) => {
                 let reaction = ReactionType::Unicode("✅".to_string());
@@ -112,7 +116,7 @@ impl EventHandler for Handler {
 struct General;
 
 #[group]
-#[commands(settings, skinlist, setup, queue)]
+#[commands(settings, skinlist, setup, queue, start, end)]
 struct Danser;
 
 #[tokio::main]
@@ -220,6 +224,11 @@ async fn create_missing_folders_and_files() -> Result<()> {
     fs::create_dir_all("../Skins").context("failed to create `../Skins`")?;
     fs::create_dir_all("../Replays").context("failed to create `../Replays`")?;
     fs::create_dir_all("../Downloads").context("failed to create `../Downloads`")?;
+    fs::create_dir_all("../danser").context("failed to create `../danser`")?;
+
+    if PathBuf::from("../danser").read_dir()?.next().is_none() {
+        info!("danser not found! please download from https://github.com/Wieku/danser-go/releases/")
+    }
 
     if !Path::new("src/server_settings.json").exists() {
         let mut file = File::create("src/server_settings.json")
