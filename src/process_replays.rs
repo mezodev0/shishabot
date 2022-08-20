@@ -1,4 +1,4 @@
-use std::{env, io::Cursor, sync::Arc, time::Duration};
+use std::{env, fmt::Display, io::Cursor, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error, Result};
 use osu_db::Replay;
@@ -22,8 +22,8 @@ use tokio::{
 use zip::ZipArchive;
 
 use crate::{
-    streamable_wrapper::StreamableApi, util::levenshtein_similarity, ReplayHandler, ReplayQueue,
-    ServerSettings, DEFAULT_PREFIX,
+    replay_queue::ReplayStatus, streamable_wrapper::StreamableApi, util::levenshtein_similarity,
+    ReplayHandler, ReplayQueue, ServerSettings, DEFAULT_PREFIX,
 };
 
 pub enum AttachmentParseSuccess {
@@ -69,13 +69,15 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
         .unwrap();
 
     loop {
-        let replay_data = queue.front().await;
-        let replay_path = replay_data.path;
-        let replay_file = replay_data.replay;
-        let replay_user = replay_data.user;
-        let replay_channel = replay_data.output_channel;
-        let input_channel = replay_data.input_channel;
-        let server_prefixes = replay_data.server_prefixes;
+        let Data {
+            input_channel,
+            output_channel: replay_channel,
+            path: replay_path,
+            replay: replay_file,
+            replay_params,
+            server_prefixes,
+            user: replay_user,
+        } = queue.peek().await;
 
         let mapset = match replay_file.beatmap_hash.as_deref() {
             Some(hash) => match osu.beatmap().checksum(hash).await {
@@ -92,8 +94,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                         )
                         .await;
 
-                        queue.default_status().await;
-                        queue.pop().await;
+                        queue.reset_peek().await;
                         continue;
                     }
                 },
@@ -106,12 +107,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                         &http,
                         input_channel,
                         replay_user,
-                        format!("failed to get the map with hash: `{}`", &hash).as_str(),
+                        format!("failed to get the map with hash: `{hash}`"),
                     )
                     .await;
 
-                    queue.default_status().await;
-                    queue.pop().await;
+                    queue.reset_peek().await;
                     continue;
                 }
             },
@@ -126,15 +126,14 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
 
         let mapset_id = mapset.mapset_id;
         info!("Started map download");
-        queue.update_status().await;
+        queue.set_status(ReplayStatus::Downloading).await;
 
         if let Err(why) = download_mapset(mapset_id, &client).await {
             warn!("{:?}", why);
@@ -143,12 +142,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 &http,
                 input_channel,
                 replay_user,
-                format!("failed to download map: {}", why).as_str(),
+                format!("failed to download map: {why}"),
             )
             .await;
 
-            queue.default_status().await;
-            queue.pop().await;
+            queue.reset_peek().await;
             continue;
         }
 
@@ -178,8 +176,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
@@ -193,16 +190,17 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
 
-        if check_server_prefix(server_prefixes, &replay_data.replay_params) {
-            let params = replay_data.replay_params.split(' ').collect::<Vec<&str>>();
+        if check_server_prefix(server_prefixes, &replay_params) {
+            let params: Vec<_> = replay_params.split(' ').collect();
             command.args(["-start", params[1]]);
+
             if params.len() == 3 {
                 command.args(["-end", params[2]]);
             }
         }
 
         info!("Started replay parsing");
-        queue.update_status().await;
+        queue.set_status(ReplayStatus::Processing).await;
 
         match command.output().await {
             Ok(output) => {
@@ -222,12 +220,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     &http,
                     input_channel,
                     replay_user,
-                    format!("failed to parse replay: {}", err).as_str(),
+                    format!("failed to parse replay: {err}"),
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         }
@@ -247,8 +244,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
@@ -269,14 +265,13 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
 
         info!("Started upload to streamable");
-        queue.update_status().await;
+        queue.set_status(ReplayStatus::Uploading).await;
 
         let shortcode = match streamable.upload_video(streamable_title, &filepath).await {
             Ok(response) => response.shortcode,
@@ -291,8 +286,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         };
@@ -313,8 +307,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     )
                     .await;
 
-                    queue.default_status().await;
-                    queue.pop().await;
+                    queue.reset_peek().await;
                     continue;
                 }
             }
@@ -329,8 +322,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 )
                 .await;
 
-                queue.default_status().await;
-                queue.pop().await;
+                queue.reset_peek().await;
                 continue;
             }
         }
@@ -347,8 +339,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             warn!("{:?}", err);
         }
 
-        queue.update_status().await;
-        queue.pop().await;
+        queue.reset_peek().await;
     }
 }
 
@@ -453,9 +444,9 @@ pub async fn parse_attachment_replay(
         Ok(file) => file,
         Err(err) => {
             warn!("failed to create file: {err}");
+
             return Err(AttachmentParseError::Other(anyhow!(
-                "failed to create file: {:?}",
-                err
+                "failed to create file: {err:?}"
             )));
         }
     };
@@ -465,8 +456,7 @@ pub async fn parse_attachment_replay(
         Err(err) => {
             warn!("failed writing to file");
             return Err(AttachmentParseError::Other(anyhow!(
-                "failed writing to file: {:?}",
-                err
+                "failed writing to file: {err:?}"
             )));
         }
     };
@@ -510,15 +500,15 @@ struct MapsetDownloadError {
 }
 
 async fn download_mapset(mapset_id: u32, client: &Client) -> Result<()> {
-    let out_path = format!("../Songs/{}", mapset_id);
-    let url = format!("https://kitsu.moe/d/{}", mapset_id);
+    let out_path = format!("../Songs/{mapset_id}");
+    let url = format!("https://kitsu.moe/d/{mapset_id}");
 
     let kitsu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
         Err(why) => why,
     };
     debug!("Using secondary mirror");
-    let url = format!("https://chimu.moe/d/{}", mapset_id);
+    let url = format!("https://chimu.moe/d/{mapset_id}");
 
     let chimu = match download_mapset_(url, &out_path, client).await {
         Ok(_) => return Ok(()),
@@ -534,13 +524,7 @@ async fn download_mapset_(url: String, out_path: &str, client: &Client) -> Resul
             Ok(bytes) => bytes,
             Err(err) => return Err(anyhow!("failed to read bytes: {err}")),
         },
-        Err(err) => {
-            return Err(anyhow!(
-                "failed to GET using: {}, error: {}",
-                url.as_str(),
-                err
-            ))
-        }
+        Err(err) => return Err(anyhow!("failed to GET using: {url}, error: {err}")),
     };
 
     let cursor = Cursor::new(bytes);
@@ -554,9 +538,7 @@ async fn download_mapset_(url: String, out_path: &str, client: &Client) -> Resul
         Ok(()) => (),
         Err(err) => {
             return Err(anyhow!(
-                "failed to extract zip archive at `{}`, error: {}",
-                out_path,
-                err
+                "failed to extract zip archive at `{out_path}`, error: {err}"
             ))
         }
     };
@@ -579,16 +561,12 @@ async fn create_title(replay: &Replay, map_path: String, _mapset: &Beatmapset) -
     let acc = accuracy(replay, GameMode::STD);
 
     let title = format!(
-        "[{}⭐] {} | {}{}{}%",
-        stars,
-        player,
-        map_title,
-        if &mods_str == "NM" {
-            " ".to_owned()
+        "[{stars}⭐] {player} | {map_title} {mods}{acc}%",
+        mods = if &mods_str == "NM" {
+            String::new()
         } else {
-            format!(" +{} ", mods_str)
+            format!("+{mods_str} ")
         },
-        acc
     );
 
     Ok(title)
@@ -610,8 +588,7 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         m
     } else {
         return Err(anyhow!(
-            "expected at least 5 words in danser log line `{}`",
-            line
+            "expected at least 5 words in danser log line `{line}`"
         ));
     };
 
@@ -621,9 +598,7 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         Ok(items) => items,
         Err(err) => {
             return Err(anyhow!(
-                "failed to read items dir at `{}`, error: {}",
-                items_dir,
-                err
+                "failed to read items dir at `{items_dir}`, error: {err}"
             ))
         }
     };
@@ -653,7 +628,7 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         let file_name = item.file_name();
         let item_file_name = file_name.to_string_lossy();
 
-        debug!("COMPARING: {} WITH: {}", map_without_artist, item_file_name);
+        debug!("COMPARING: {map_without_artist} WITH: {item_file_name}");
 
         let similarity = levenshtein_similarity(map_without_artist, &item_file_name);
 
@@ -663,10 +638,7 @@ async fn get_beatmap_osu_file(mapset_id: u32) -> Result<String> {
         }
     }
 
-    debug!(
-        "FINAL TITLE: {} SIMILARITY: {}",
-        final_file_name, max_similarity
-    );
+    debug!("FINAL TITLE: {final_file_name} SIMILARITY: {max_similarity}");
 
     Ok(final_file_name)
 }
@@ -730,8 +702,7 @@ async fn get_title() -> Result<String> {
         m
     } else {
         return Err(anyhow!(
-            "expected at least 5 words in danser log line `{}`",
-            line
+            "expected at least 5 words in danser log line `{line}`"
         ));
     };
 
@@ -745,17 +716,15 @@ fn check_server_prefix(server_prefixes: Vec<String>, params: &str) -> bool {
 }
 
 async fn send_error_message(
-    http: &Arc<Http>,
+    http: &Http,
     channel: ChannelId,
     replay_user: UserId,
-    content: &str,
+    content: impl Display,
 ) {
     if let Err(err) = channel
-        .send_message(&http, |m| {
-            m.content(format!("<@{}>, {}", replay_user, content))
-        })
+        .send_message(&http, |m| m.content(format!("<@{replay_user}>, {content}")))
         .await
     {
-        warn!("Couldn't send error message to discord: {}", err);
+        warn!("Couldn't send error message to discord: {err}");
     }
 }

@@ -18,12 +18,8 @@ async fn skinlist(ctx: &Context, msg: &Message) -> CommandResult {
     while let Some(skin) = skins.next_entry().await? {
         counter += 1;
         let file_name = skin.file_name();
-        let _ = writeln!(
-            skinlist,
-            "{}) {}",
-            counter,
-            file_name.to_string_lossy().replace('_', " ")
-        );
+        let name = file_name.to_string_lossy().replace('_', " ");
+        let _ = writeln!(skinlist, "{counter}) {name}");
     }
 
     msg.channel_id

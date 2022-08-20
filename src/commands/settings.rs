@@ -51,35 +51,31 @@ use crate::commands::Settings;
 !!settings show_strain_graph`[on/off]` - enable/disable the strain graph"]
 #[usage = "[setting] [value]\nsettings [user]\nsettings copy [user]"]
 async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
-    let author = if msg.mentions.is_empty() {
-        msg.author.id
-    } else {
-        msg.mentions[0].id
-    };
+    let author = msg.mentions.first().map_or(msg.author.id, |user| user.id);
 
     let from = "../danser/settings/default.json";
-    let to = format!("../danser/settings/{}.json", author);
+    let to = format!("../danser/settings/{author}.json");
 
-    if !path_exists(format!("../danser/settings/{}.json", author)).await {
+    if !path_exists(format!("../danser/settings/{author}.json")).await {
         fs::copy(from, to)
             .await
             .context("failed to create settings file")?;
     }
 
-    let settings_path = format!("../danser/settings/{}.json", author);
+    let settings_path = format!("../danser/settings/{author}.json");
     let file_content = tokio::fs::read_to_string(settings_path).await?;
     let mut settings: Settings = serde_json::from_str(&file_content)?;
 
-    if msg.content.split(' ').count() != 1
-        && msg.content.split(' ').collect::<Vec<&str>>()[1] == "copy"
-    {
+    if msg.content.split(' ').count() != 1 && msg.content.split(' ').nth(1) == Some("copy") {
         if msg.mentions.is_empty() {
             let content = "You need to mention someone in order to steal their settings!";
             msg.reply(&ctx, content).await?;
+
             return Ok(());
         }
 
         let copy_from = msg.mentions[0].id;
+
         if let Err(why) =
             tokio::fs::remove_file(format!("../danser/settings/{}.json", msg.author.id)).await
         {
@@ -88,35 +84,34 @@ async fn settings(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                 "Oops! I couldn't find your file! Please type !!settings to resolve this issue.",
             )
             .await?;
-            info!("User {} had error: {}", msg.author.name, why);
+            info!("User {} had error: {why}", msg.author.name);
         }
 
         tokio::fs::copy(
-            format!("../danser/settings/{}.json", copy_from),
+            format!("../danser/settings/{copy_from}.json"),
             format!("../danser/settings/{}.json", msg.author.id),
         )
         .await?;
 
         msg.reply(&ctx, "Copied settings!").await?;
+
         return Ok(());
     }
 
     if msg.content.split(' ').count() == 3 {
-        let new_settings = msg.content.split(' ').collect::<Vec<&str>>();
+        let mut split = msg.content.split(' ');
+        let key = split.nth(1).unwrap();
+        let value = split.next().unwrap();
 
-        match edit_setting(&mut settings, new_settings[1], new_settings[2], msg).await {
-            Ok(_) => {
-                msg.reply(&ctx, "Edited setting successfully!").await?;
-            }
+        match edit_setting(&mut settings, key, value, msg).await {
+            Ok(_) => msg.reply(&ctx, "Edited setting successfully!").await?,
             Err(EditSettingsError::Other(err)) => {
                 let _ = msg.reply(&ctx, "something went wrong, blame mezo").await;
 
                 return Err(err.into());
             }
-            Err(why) => {
-                msg.reply(&ctx, why).await?;
-            }
-        }
+            Err(why) => msg.reply(&ctx, why).await?,
+        };
 
         return Ok(());
     }

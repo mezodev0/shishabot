@@ -9,51 +9,37 @@ use serenity::{
     utils::Color,
 };
 
-use crate::ReplayHandler;
+use crate::{replay_queue::ReplayStatus, ReplayHandler};
 
 #[command]
 #[description = "Displays the current replay queue"]
 #[aliases("q")]
 async fn queue(ctx: &Context, msg: &Message) -> CommandResult {
     let data_guard = ctx.data.read().await;
-    let queue_guard = data_guard
-        .get::<ReplayHandler>()
-        .unwrap()
-        .queue
-        .lock()
-        .await;
+    let queue_guard = data_guard.get::<ReplayHandler>().unwrap();
+    let inner_queue_guard = queue_guard.queue.lock().await;
 
-    let queue_list = if queue_guard.is_empty() {
+    let queue_list = if inner_queue_guard.is_empty() {
         "The queue is empty".to_string()
     } else {
         let mut s = String::new();
-        let status = *data_guard
-            .get::<ReplayHandler>()
-            .unwrap()
-            .status
-            .lock()
-            .await;
-        for (replay_data, idx) in queue_guard.iter().zip(1..) {
-            let _ = writeln!(
-                s,
-                "{idx}. {} queued by <@{}> - {}",
-                replay_data
-                    .path
-                    .replace("../Downloads/", "")
-                    .replace('_', " ")
-                    .replace(".osr", ""),
-                replay_data.user,
-                if idx == 1 {
-                    match status {
-                        crate::ReplayStatus::Waiting => "Waiting",
-                        crate::ReplayStatus::Downloading => "Downloading",
-                        crate::ReplayStatus::Processing => "Processing",
-                        crate::ReplayStatus::Uploading => "Uploading",
-                    }
-                } else {
-                    "Waiting"
-                }
-            );
+
+        let status = *queue_guard.status.lock().await;
+
+        for (replay_data, idx) in inner_queue_guard.iter().zip(1..) {
+            let name = replay_data
+                .path
+                .replace("../Downloads/", "")
+                .replace('_', " ")
+                .replace(".osr", "");
+
+            let status = (idx == 1)
+                .then_some(status)
+                .unwrap_or(ReplayStatus::Waiting);
+
+            let user = replay_data.user;
+
+            let _ = writeln!(s, "{idx}. {name} queued by <@{user}> - {status}");
         }
 
         s

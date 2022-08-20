@@ -48,7 +48,7 @@ async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
 
         if let Err(why) = tokio::fs::write("src/server_settings.json", edited_settings).await {
             let err = Error::new(why).context("failed to edit server specific settings");
-            warn!("{:?}", err);
+            warn!("{err:?}");
         }
 
         msg.reply(&ctx, "Successfully changed settings!").await?;
@@ -69,7 +69,7 @@ async fn setup(ctx: &SerenityContext, msg: &Message) -> CommandResult {
                             if let Some(guild) = msg.guild_id {
                                 format!(" for {}", guild.name(&ctx).unwrap_or_default())
                             } else {
-                                "".to_owned()
+                                String::new()
                             }
                         ))
                         .description(format!(
