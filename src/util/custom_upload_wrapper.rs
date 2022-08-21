@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use reqwest::{
+    header::CONTENT_TYPE,
     multipart::{self, Part},
     Client, Response,
 };
@@ -15,9 +16,10 @@ pub struct CustomUploadApi {
     pub secret_key: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UploadResponse {
-    pub link: String,
+    pub error: u16,
+    pub text: String,
 }
 
 impl CustomUploadApi {
@@ -48,6 +50,13 @@ impl CustomUploadApi {
         let resp = self
             .client
             .post(self.url.clone())
+            .header(
+                CONTENT_TYPE,
+                format!(
+                    "multipart/form-data; charset=utf-8; boundary=\"{}\"",
+                    form.boundary()
+                ),
+            )
             .multipart(form)
             .send()
             .await?;
