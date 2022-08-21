@@ -49,8 +49,27 @@ pub struct Data {
     pub output_channel: ChannelId,
     pub path: String,
     pub replay: Replay,
-    pub replay_params: Option<Vec<String>>,
+    pub time_points: Option<TimePoints>,
     pub user: UserId,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct TimePoints {
+    pub start: Option<u32>,
+    pub end: Option<u32>,
+}
+
+impl TimePoints {
+    pub fn parse_single(s: &str) -> Result<u32, &'static str> {
+        let mut iter = s.split(':').map(str::parse);
+
+        match (iter.next(), iter.next()) {
+            (Some(Ok(minutes)), Some(Ok(seconds @ 0..=59))) => Ok(minutes * 60 + seconds),
+            (Some(Ok(_)), Some(Ok(_))) => Err("Seconds must be between 0 and 60!"),
+            (Some(Ok(seconds)), None) => Ok(seconds),
+            _ => Err("A value you supplied is not a number!"),
+        }
+    }
 }
 
 pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Arc<ReplayQueue>) {
@@ -73,7 +92,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             output_channel: replay_channel,
             path: replay_path,
             replay: replay_file,
-            replay_params,
+            time_points,
             user: replay_user,
         } = queue.peek().await;
 
@@ -98,8 +117,8 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 },
                 Err(why) => {
                     let err = Error::new(why)
-                        .context(format!("failed to request map with hash `{}`", hash));
-                    warn!("{:?}", err);
+                        .context(format!("failed to request map with hash `{hash}`"));
+                    warn!("{err:?}");
 
                     send_error_message(
                         &http,
@@ -114,7 +133,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                 }
             },
             None => {
-                warn!("No hash in replay requested by user {}", replay_user);
+                warn!("No hash in replay requested by user {replay_user}");
 
                 send_error_message(
                     &http,
@@ -150,7 +169,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
 
         info!("Finished map download");
 
-        let settings = if path_exists(format!("../danser/settings/{}.json", replay_user)).await {
+        let settings = if path_exists(format!("../danser/settings/{replay_user}.json")).await {
             replay_user.to_string()
         } else {
             "default".to_string()
@@ -164,7 +183,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
         let filename = match filename_opt {
             Some(name) => name,
             None => {
-                warn!("replay path `{}` has an unexpected form", replay_path);
+                warn!("replay path `{replay_path}` has an unexpected form");
 
                 send_error_message(
                     &http,
@@ -188,12 +207,13 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             .arg("-quickstart")
             .arg(format!("-out={}", filename));
 
-        if let Some(params) = replay_params {
-            if params[0] != "0" {
-                command.args(["-start", params[0].as_str()]);
+        if let Some(time_points) = time_points {
+            if let Some(start) = time_points.start {
+                command.args(["-start", &start.to_string()]);
             }
-            if params[1] != "0" {
-                command.args(["-end", params[1].as_str()]);
+
+            if let Some(end) = time_points.end {
+                command.args(["-end", &end.to_string()]);
             }
         }
 
@@ -378,7 +398,7 @@ async fn await_video_ready(streamable: &StreamableApi, shortcode: &str) -> Resul
 pub async fn parse_attachment_replay(
     msg: &Message,
     ctx_data: &RwLock<TypeMap>,
-    replay_params: Option<Vec<String>>,
+    time_points: Option<TimePoints>,
 ) -> AttachmentParseResult {
     let attachment = match msg.attachments.last() {
         Some(a) if matches!(a.filename.split('.').last(), Some("osr")) => a,
@@ -454,9 +474,9 @@ pub async fn parse_attachment_replay(
     let replay_data = Data {
         input_channel: msg.channel_id,
         output_channel,
-        path: format!("../Downloads/{}", &attachment.filename),
+        path: format!("../Downloads/{}", attachment.filename),
         replay,
-        replay_params,
+        time_points,
         user: msg.author.id,
     };
 
