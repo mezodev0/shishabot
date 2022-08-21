@@ -292,7 +292,23 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
         queue.set_status(ReplayStatus::Uploading).await;
 
         let link = match uploader.upload_video(video_title, &filepath).await {
-            Ok(response) => response.link,
+            Ok(response) => {
+                if response.error == 1 {
+                    warn!("failed to upload: {}", response.text);
+                    send_error_message(
+                        &http,
+                        input_channel,
+                        replay_user,
+                        format!("failed to upload: `{}`", response.text).as_str(),
+                    )
+                    .await;
+
+                    queue.reset_peek().await;
+                    continue;
+                } else {
+                    response.text
+                }
+            }
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
 
