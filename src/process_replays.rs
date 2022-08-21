@@ -1,4 +1,4 @@
-use std::{env, fmt::Display, io::Cursor, sync::Arc, time::Duration};
+use std::{env, fmt::Display, io::Cursor, sync::Arc};
 
 use anyhow::{Context, Error, Result};
 use osu_db::Replay;
@@ -17,12 +17,12 @@ use tokio::{
     fs::{self, DirEntry, File},
     io::AsyncWriteExt,
     process::Command,
-    time::{self, interval, MissedTickBehavior},
 };
 use zip::ZipArchive;
 
 use crate::{
-    replay_queue::ReplayStatus, streamable_wrapper::StreamableApi, util::levenshtein_similarity,
+    replay_queue::ReplayStatus,
+    util::{levenshtein_similarity, CustomUploadApi},
     ReplayHandler, ReplayQueue, ServerSettings,
 };
 
@@ -73,17 +73,17 @@ impl TimePoints {
 }
 
 pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Arc<ReplayQueue>) {
-    let username = env::var("STREAMABLE_USERNAME")
-        .context("missing env variable `STREAMABLE_USERNAME`")
+    let url = env::var("CUSTOM_UPLOAD_URL")
+        .context("missing env variable `CUSTOM_UPLOAD_URL`")
         .unwrap();
 
-    let password = env::var("STREAMABLE_PASSWORD")
-        .context("missing env variable `STREAMABLE_PASSWORD`")
+    let secret_key = env::var("CUSTOM_UPLOAD_SECRET")
+        .context("missing env variable `CUSTOM_UPLOAD_SECRET`")
         .unwrap();
 
-    let streamable = StreamableApi::new(username, password)
+    let uploader = CustomUploadApi::new(url, secret_key)
         .await
-        .context("failed to create streamable api wrapper")
+        .context("failed to create custom upload api wrapper")
         .unwrap();
 
     loop {
@@ -270,7 +270,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
         let map_path = format!("../Songs/{}/{}", mapset_id, map_osu_file);
         let filepath = format!("../Replays/{}.mp4", filename);
 
-        let streamable_title = match create_title(&replay_file, map_path, &mapset).await {
+        let video_title = match create_title(&replay_file, map_path, &mapset).await {
             Ok(title) => title,
             Err(why) => {
                 warn!("{:?}", why.context("failed to create title"));
@@ -279,7 +279,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     &http,
                     input_channel,
                     replay_user,
-                    "there was an error while trying to create the streamable title",
+                    "there was an error while trying to create the video title",
                 )
                 .await;
 
@@ -288,11 +288,11 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             }
         };
 
-        info!("Started upload to streamable");
+        info!("Started upload to shisha.mezo.xyz");
         queue.set_status(ReplayStatus::Uploading).await;
 
-        let shortcode = match streamable.upload_video(streamable_title, &filepath).await {
-            Ok(response) => response.shortcode,
+        let link = match uploader.upload_video(video_title, &filepath).await {
+            Ok(response) => response.link,
             Err(why) => {
                 warn!("{:?}", why.context("failed to upload file"));
 
@@ -300,7 +300,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     &http,
                     input_channel,
                     replay_user,
-                    "failed to upload to streamable",
+                    "failed to upload to custom uploader",
                 )
                 .await;
 
@@ -309,89 +309,18 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
             }
         };
 
-        tokio::select! {
-            res = await_video_ready(&streamable, &shortcode) => {
-                if res.is_err() {
-                    warn!(
-                        "Got too many errors while trying to retrieve video's ready status, \
-                        abort and go to next..."
-                    );
+        info!("Finished upload to shisha.mezo.xyz");
 
-                    send_error_message(
-                        &http,
-                        input_channel,
-                        replay_user,
-                        "there was an error while trying to retrieve the video's ready status",
-                    )
-                    .await;
-
-                    queue.reset_peek().await;
-                    continue;
-                }
-            }
-            _ = time::sleep(Duration::from_secs(300)) => {
-                warn!("Failed to upload video within 5 minutes, abort and go to next...");
-
-                send_error_message(
-                    &http,
-                    input_channel,
-                    replay_user,
-                    "failed to upload the replay within 5 minutes",
-                )
-                .await;
-
-                queue.reset_peek().await;
-                continue;
-            }
-        }
-
-        info!("Finished upload to streamable");
-
-        let content =
-            format!("<@{replay_user}> your replay is ready! https://streamable.com/{shortcode}");
+        let content = format!("<@{replay_user}> your replay is ready! {link}");
 
         let msg_fut = replay_channel.send_message(&http, |m| m.content(content));
 
         if let Err(why) = msg_fut.await {
-            let err = Error::new(why).context("failed to send streamable link");
+            let err = Error::new(why).context("failed to send video link");
             warn!("{:?}", err);
         }
 
         queue.reset_peek().await;
-    }
-}
-
-async fn await_video_ready(streamable: &StreamableApi, shortcode: &str) -> Result<(), ()> {
-    let mut interval = interval(Duration::from_secs(5));
-    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
-    let mut attempt: u8 = 0;
-    const ATTEMPTS: u8 = 10;
-
-    loop {
-        interval.tick().await;
-
-        let status = match streamable.check_status_code(shortcode).await {
-            Ok(status) => {
-                attempt = 0;
-
-                status
-            }
-            Err(why) => {
-                warn!("failed to get status code on attempt #{attempt}/{ATTEMPTS}: {why}");
-                attempt += 1;
-
-                if attempt == ATTEMPTS {
-                    return Err(());
-                }
-
-                continue;
-            }
-        };
-
-        if status == 2 {
-            return Ok(());
-        }
     }
 }
 
