@@ -7,6 +7,7 @@ use reqwest::{
     Client, Response,
 };
 use serde::Deserialize;
+use serenity::model::prelude::UserId;
 use tokio::{fs::File, io::AsyncReadExt};
 
 #[derive(Clone)]
@@ -30,21 +31,34 @@ impl CustomUploadApi {
             secret_key,
         })
     }
-    pub async fn upload_video(&self, title: String, filepath: &str) -> Result<UploadResponse> {
-        let resp = self.api_request(title, filepath).await?;
+    pub async fn upload_video(
+        &self,
+        title: String,
+        author: UserId,
+        filepath: &str,
+    ) -> Result<UploadResponse> {
+        let resp = self
+            .api_request(title, author.to_string(), filepath)
+            .await?;
         let json = resp.json::<UploadResponse>().await?;
 
         Ok(json)
     }
 
-    pub async fn api_request(&self, data: String, files: &str) -> Result<Response> {
+    pub async fn api_request(
+        &self,
+        title: String,
+        author: String,
+        files: &str,
+    ) -> Result<Response> {
         let file = read_file(&files)
             .await
             .with_context(|| format!("failed to load file for path `{files}`"))?;
 
         let form = multipart::Form::new()
             .part("video", file)
-            .text("title", data)
+            .text("title", title)
+            .text("author", author)
             .text("secret", self.secret_key.clone());
 
         let resp = self

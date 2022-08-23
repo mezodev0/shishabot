@@ -291,7 +291,10 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
         info!("Started upload to shisha.mezo.xyz");
         queue.set_status(ReplayStatus::Uploading).await;
 
-        let link = match uploader.upload_video(video_title, &filepath).await {
+        let link = match uploader
+            .upload_video(video_title, replay_user, &filepath)
+            .await
+        {
             Ok(response) => {
                 if response.error == 1 {
                     warn!("failed to upload: {}", response.text);
