@@ -61,7 +61,7 @@ async fn bot_owner_check(
 ) -> Result<(), Reason> {
     let owners_as_string = env::var("BOT_OWNER").expect("Expected token BOT_OWNER from the env");
 
-    let owners: Vec<&str> = owners_as_string.split(";").collect();
+    let owners: Vec<&str> = owners_as_string.split(';').collect();
 
     if owners.contains(&msg.author.id.to_string().as_str()) {
         return Ok(());

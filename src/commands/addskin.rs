@@ -82,7 +82,7 @@ async fn addskin(ctx: &serenity::prelude::Context, msg: &Message) -> CommandResu
         }
     };
 
-    let skinname = if let Some((filename, _extension)) = attachment.filename.rsplit_once(".") {
+    let skinname = if let Some((filename, _extension)) = attachment.filename.rsplit_once('.') {
         let mut file_count = FileCounter::new(filename.to_string());
         loop {
             if !Path::new(&format!("../Skins/{file_count}")).exists() {
