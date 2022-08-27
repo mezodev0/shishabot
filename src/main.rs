@@ -115,7 +115,7 @@ impl EventHandler for Handler {
 struct General;
 
 #[group]
-#[commands(settings, skinlist, setup, queue, start, end)]
+#[commands(settings, skinlist, addskin, setup, queue, start, end)]
 struct Danser;
 
 #[tokio::main]
