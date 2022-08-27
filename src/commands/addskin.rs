@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use crate::checks::PERMISSIONS_CHECK;
+use crate::checks::BOTOWNER_CHECK;
 use anyhow::Context;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
@@ -48,9 +48,8 @@ impl Display for FileCounter {
 }
 
 #[command]
-#[checks(Permissions)]
-#[only_in(guilds)]
-#[description = "**Requires osu! skin Attachment"]
+#[checks(BotOwner)]
+#[description = "**Requires osu! skin attachment**\nAllows you to upload custom skins"]
 async fn addskin(ctx: &serenity::prelude::Context, msg: &Message) -> CommandResult {
     let attachment = match msg.attachments.last() {
         Some(a) if matches!(a.filename.split('.').last(), Some("osk")) => a,
