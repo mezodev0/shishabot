@@ -1,3 +1,5 @@
+use std::env;
+
 use serenity::{
     client::Context,
     framework::standard::{macros::check, Args, CommandOptions, Reason},
@@ -42,6 +44,27 @@ async fn permissions_check(
         {
             return Ok(());
         }
+    }
+
+    Err(Reason::User(
+        "Lacking required permission to run command".to_string(),
+    ))
+}
+
+#[check]
+#[name = "BotOwner"]
+async fn bot_owner_check(
+    _ctx: &Context,
+    msg: &Message,
+    _: &mut Args,
+    _: &CommandOptions,
+) -> Result<(), Reason> {
+    let owners_as_string = env::var("BOT_OWNER").expect("Expected token BOT_OWNER from the env");
+
+    let owners: Vec<&str> = owners_as_string.split(';').collect();
+
+    if owners.contains(&msg.author.id.to_string().as_str()) {
+        return Ok(());
     }
 
     Err(Reason::User(
