@@ -618,7 +618,7 @@ fn accuracy(replay: &Replay, mode: GameMode) -> f32 {
                 + replay.count_300 as u32 * 300) as f32;
 
             n += ((mode == GameMode::MNA) as u32
-                * (replay.count_katsu * 200 + replay.count_geki * 300) as u32)
+                * (replay.count_katsu as u32 + replay.count_geki as u32))
                 as f32;
 
             (n, amount_objects * 300.0)
