@@ -78,10 +78,17 @@ impl EventHandler for Handler {
                     warn!("{:?}", err);
                 }
             }
+            Err(AttachmentParseError::IncorrectMode(_)) => {
+                if let Err(why) = msg.reply(&ctx, "danser only accepts osu!standard plays, sorry :(").await {
+                    let err =
+                        Error::new(why).context("failed to reply after attachment parse error");
+                    warn!("{:?}", err);
+                }
+            }
             Err(why) => {
                 let err = Error::new(why).context("failed to parse attachment");
                 warn!("{:?}", err);
-
+                
                 if let Err(why) = msg.reply(&ctx, "something went wrong, blame mezo").await {
                     let err =
                         Error::new(why).context("failed to reply after attachment parse error");
