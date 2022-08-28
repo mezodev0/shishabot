@@ -39,6 +39,8 @@ pub enum AttachmentParseError {
     Other(#[from] Error),
     #[error("failed to parse replay")]
     Parsing(#[from] osu_db::Error),
+    #[error("replay is in invalid mode: {0:?}")]
+    IncorrectMode(osu_db::Mode),
 }
 
 type AttachmentParseResult = Result<AttachmentParseSuccess, AttachmentParseError>;
@@ -258,7 +260,7 @@ pub async fn process_replay(osu: Osu, http: Arc<Http>, client: Client, queue: Ar
                     &http,
                     input_channel,
                     replay_user,
-                    "there was an error reading the log file",
+                    "danser did not like the replay file",
                 )
                 .await;
 
@@ -397,6 +399,12 @@ pub async fn parse_attachment_replay(
             return Err(AttachmentParseError::Parsing(err));
         }
     };
+
+    let replay_mode = replay.mode;
+    if replay_mode != osu_db::Mode::Standard {
+        warn!("replay sent was not in played in std");
+        return Err(AttachmentParseError::IncorrectMode(replay_mode));
+    }
 
     let mut file = match File::create(format!("../Downloads/{}", &attachment.filename)).await {
         Ok(file) => file,
