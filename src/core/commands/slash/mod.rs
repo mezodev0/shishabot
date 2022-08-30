@@ -1,14 +1,12 @@
 use std::{iter::Copied, pin::Pin};
 
+use eyre::Result;
 use futures::Future;
 use once_cell::sync::OnceCell;
 use radix_trie::{iter::Keys, Trie, TrieCommon};
 use twilight_model::application::command::Command;
 
-use crate::{
-    commands::{help::*, owner::*, utility::*},
-    BotResult,
-};
+use crate::commands::{help::*, owner::*, utility::*};
 
 pub use self::command::SlashCommand;
 
@@ -30,7 +28,7 @@ static SLASH_COMMANDS: OnceCell<SlashCommands> = OnceCell::new();
 
 pub struct SlashCommands(Trie<&'static str, &'static SlashCommand>);
 
-pub type CommandResult = Pin<Box<dyn Future<Output = BotResult<()>> + 'static + Send>>;
+pub type CommandResult = Pin<Box<dyn Future<Output = Result<()>> + 'static + Send>>;
 
 type CommandKeys<'t> = Copied<Keys<'t, &'static str, &'static SlashCommand>>;
 
@@ -39,14 +37,12 @@ impl SlashCommands {
         SLASH_COMMANDS.get_or_init(|| {
             slash_trie! {
                 Commands => COMMANDS_SLASH,
-                Config => CONFIG_SLASH,
                 Help => HELP_SLASH,
                 Invite => INVITE_SLASH,
                 Owner => OWNER_SLASH,
                 Ping => PING_SLASH,
                 Prune => PRUNE_SLASH,
                 Roll => ROLL_SLASH,
-                ServerConfig => SERVERCONFIG_SLASH,
             }
         })
     }

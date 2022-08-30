@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use eyre::Report;
+use eyre::Result;
 use tokio::{
     sync::watch::{self, Receiver, Sender},
     time::sleep,
@@ -17,7 +17,6 @@ use twilight_model::{
 use crate::{
     core::{commands::CommandOrigin, Context},
     util::{builder::MessageBuilder, numbers::last_multiple, MessageExt},
-    BotResult,
 };
 
 pub use self::command_count::*;
@@ -31,7 +30,7 @@ pub enum PaginationKind {
 }
 
 impl PaginationKind {
-    async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         match self {
             Self::CommandCount(kind) => Ok(kind.build_page(pages)),
         }
@@ -52,7 +51,7 @@ impl Pagination {
         ctx: Arc<Context>,
         orig: CommandOrigin<'_>,
         builder: PaginationBuilder,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         let PaginationBuilder {
             mut kind,
             pages,
@@ -115,14 +114,14 @@ impl Pagination {
         let _ = self.tx.send(());
     }
 
-    async fn build(&mut self, ctx: &Context) -> BotResult<MessageBuilder<'static>> {
+    async fn build(&mut self, ctx: &Context) -> Result<MessageBuilder<'static>> {
         let embed = self.build_page(ctx).await?;
         let components = self.pages.components(self.component_kind);
 
         Ok(MessageBuilder::new().embed(embed).components(components))
     }
 
-    async fn build_page(&mut self, ctx: &Context) -> BotResult<Embed> {
+    async fn build_page(&mut self, ctx: &Context) -> Result<Embed> {
         self.kind.build_page(ctx, &self.pages).await
     }
 
@@ -149,8 +148,7 @@ impl Pagination {
                             let builder = MessageBuilder::new().components(Vec::new());
 
                             if let Err(err) = (msg, channel).update(&ctx, &builder).await {
-                                let report = Report::new(err).wrap_err("failed to remove components");
-                                warn!("{report:?}");
+                                warn!("failed to remove components: {err:?}");
                             }
                         }
 
@@ -186,7 +184,7 @@ impl PaginationBuilder {
     }
 
     /// Start the pagination
-    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         Pagination::start(ctx, orig, self).await
     }
 

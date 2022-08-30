@@ -1,4 +1,8 @@
-#![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
+// TODO: uncomment
+// #![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
+
+#[macro_use]
+extern crate eyre;
 
 #[macro_use]
 extern crate tracing;
@@ -19,12 +23,9 @@ use std::sync::Arc;
 use eyre::{Result, WrapErr};
 use tokio::{runtime::Builder as RuntimeBuilder, signal};
 
-use crate::{
-    core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context},
-    error::Error,
-};
+use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context};
 
-type BotResult<T> = std::result::Result<T, Error>;
+pub const DEFAULT_PREFIX: &str = "!!";
 
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
@@ -33,8 +34,8 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
-    if let Err(report) = runtime.block_on(async_main()) {
-        error!("{:?}", report.wrap_err("critical error in main"));
+    if let Err(err) = runtime.block_on(async_main()) {
+        error!("critical error in main: {err:?}");
     }
 }
 
@@ -43,7 +44,7 @@ async fn async_main() -> Result<()> {
     let _log_worker_guard = logging::initialize();
 
     // Load config file
-    core::BotConfig::init().context("failed to initialize config")?;
+    BotConfig::init().context("failed to initialize config")?;
 
     let (ctx, events) = Context::new().await.context("failed to create ctx")?;
 

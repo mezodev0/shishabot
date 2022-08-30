@@ -1,3 +1,11 @@
+use std::{str::FromStr, sync::Arc};
+
+use command_macros::{command, SlashCommand};
+use eyre::Result;
+use tokio::time::{self, Duration};
+use twilight_http::{api_error::ApiError, error::ErrorType};
+use twilight_interactions::command::{CommandModel, CreateCommand};
+
 use crate::{
     core::commands::CommandOrigin,
     util::{
@@ -6,15 +14,8 @@ use crate::{
         interaction::InteractionCommand,
         ChannelExt, InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
-
-use command_macros::{command, SlashCommand};
-use std::{str::FromStr, sync::Arc};
-use tokio::time::{self, Duration};
-use twilight_http::{api_error::ApiError, error::ErrorType};
-use twilight_interactions::command::{CommandModel, CreateCommand};
-
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "prune",
@@ -28,7 +29,7 @@ pub struct Prune {
     /// Choose the amount of messages to delete
     amount: i64,
 }
-async fn slash_prune(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_prune(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Prune::from_interaction(command.input_data())?;
 
     prune(ctx, (&mut command).into(), args.amount as u64).await
@@ -47,7 +48,7 @@ async fn slash_prune(ctx: Arc<Context>, mut command: InteractionCommand) -> BotR
 #[alias("purge")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_prune(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_prune(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let amount = match args.num.map(Ok).or_else(|| args.next().map(u64::from_str)) {
         Some(Ok(amount)) => {
             if !(1..100).contains(&amount) {
@@ -65,7 +66,7 @@ async fn prefix_prune(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> B
     prune(ctx, msg.into(), amount).await
 }
 
-async fn prune(ctx: Arc<Context>, orig: CommandOrigin<'_>, amount: u64) -> BotResult<()> {
+async fn prune(ctx: Arc<Context>, orig: CommandOrigin<'_>, amount: u64) -> Result<()> {
     let channel_id = orig.channel_id();
     let slash = matches!(orig, CommandOrigin::Interaction { .. });
 

@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
+use eyre::{Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
-use flurry::HashMap as FlurryMap;
 use rosu_v2::Osu;
+use tokio::{fs, io::AsyncWriteExt};
 use twilight_gateway::{cluster::Events, Cluster};
 use twilight_http::{client::InteractionClient, Client};
 use twilight_model::{
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     id::{
-        marker::{ApplicationMarker, GuildMarker, MessageMarker},
+        marker::{ApplicationMarker, MessageMarker},
         Id,
     },
 };
@@ -16,10 +17,10 @@ use twilight_standby::Standby;
 
 use crate::{
     core::BotConfig, custom_client::CustomClient, pagination::Pagination,
-    util::hasher::SimpleBuildHasher, BotResult,
+    util::hasher::SimpleBuildHasher,
 };
 
-use super::{buckets::Buckets, cluster::build_cluster, Cache};
+use super::{buckets::Buckets, cluster::build_cluster, settings::RootSettings, Cache, ReplayQueue};
 
 mod configs;
 
@@ -30,13 +31,15 @@ pub struct Context {
     pub http: Arc<Client>,
     pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, SimpleBuildHasher>>,
     pub standby: Standby,
-    data: ContextData,
+    pub replay_queue: Arc<ReplayQueue>,
+    root_settings: RootSettings,
+    application_id: Id<ApplicationMarker>,
     clients: Clients,
 }
 
 impl Context {
     pub fn interaction(&self) -> InteractionClient<'_> {
-        self.http.interaction(self.data.application_id)
+        self.http.interaction(self.application_id)
     }
 
     pub fn osu(&self) -> &Osu {
@@ -48,9 +51,19 @@ impl Context {
         &self.clients.custom
     }
 
-    pub async fn new() -> BotResult<(Self, Events)> {
+    pub async fn new() -> Result<(Self, Events)> {
         let config = BotConfig::get();
+
+        create_missing_folders_and_files(config).await?;
+
         let discord_token = &config.tokens.discord;
+
+        let bytes = fs::read(&config.paths.server_settings)
+            .await
+            .context("failed to read server settings file")?;
+
+        let root_settings =
+            serde_json::from_slice(&bytes).context("failed to deserialize server settings file")?;
 
         let mentions = AllowedMentionsBuilder::new()
             .replied_user()
@@ -83,25 +96,25 @@ impl Context {
         // Log custom client into osu!
         let custom = CustomClient::new().await?;
 
-        let data = ContextData::new(application_id).await?;
         let (cache, resume_data) = Cache::new().await;
 
         let clients = Clients::new(osu, custom);
         let (cluster, events) =
             build_cluster(discord_token, Arc::clone(&http), resume_data).await?;
 
+        let paginations = TokioMutexMap::with_shard_amount_and_hasher(16, SimpleBuildHasher);
+
         let ctx = Self {
             cache,
             http,
             clients,
             cluster,
-            data,
+            application_id,
+            root_settings,
+            paginations: Arc::new(paginations),
             standby: Standby::new(),
             buckets: Buckets::new(),
-            paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(
-                16,
-                SimpleBuildHasher,
-            )),
+            replay_queue: Arc::new(ReplayQueue::new()),
         };
 
         Ok((ctx, events))
@@ -119,19 +132,41 @@ impl Clients {
     }
 }
 
-struct ContextData {
-    application_id: Id<ApplicationMarker>,
-    guilds: FlurryMap<Id<GuildMarker>, GuildConfig, SimpleBuildHasher>, // read-heavy
-}
+async fn create_missing_folders_and_files(config: &BotConfig) -> Result<()> {
+    macro_rules! create_folders {
+        ($($folder:literal),*) => {
+            $(
+                let mut path = config.paths.folders.clone();
+                path.push($folder);
 
-// TODO
-pub type GuildConfig = ();
-
-impl ContextData {
-    async fn new(application_id: Id<ApplicationMarker>) -> BotResult<Self> {
-        Ok(Self {
-            application_id,
-            guilds: FlurryMap::default(),
-        })
+                fs::create_dir_all(&path)
+                    .await
+                    .with_context(|| format!("failed to create `{path:?}`"))?;
+            )*
+        }
     }
+
+    create_folders!("Songs", "Skins", "Replays", "Downloads", "danser");
+
+    let mut danser_path = config.paths.folders.clone();
+    danser_path.push("danser");
+
+    ensure!(
+        danser_path.read_dir()?.next().is_some(),
+        "danser not found! please download from https://github.com/Wieku/danser-go/releases/"
+    );
+
+    let server_settings = &config.paths.server_settings;
+
+    if !server_settings.exists() {
+        let mut file = fs::File::create(server_settings)
+            .await
+            .context("failed to create server settings file")?;
+
+        file.write_all(b"{\"Servers\":[]}")
+            .await
+            .context("failed writing to server settings file")?;
+    }
+
+    Ok(())
 }

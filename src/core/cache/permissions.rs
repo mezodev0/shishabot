@@ -51,8 +51,13 @@ impl Cache {
         &self,
         user: Id<UserMarker>,
         channel: Id<ChannelMarker>,
-        guild: Id<GuildMarker>,
+        guild: Option<Id<GuildMarker>>,
     ) -> Permissions {
+        let guild = match guild {
+            Some(guild) => guild,
+            None => return Permissions::all(),
+        };
+
         let (mut permissions, roles) = self.get_guild_permissions(user, guild);
 
         if permissions.contains(Permissions::ADMINISTRATOR) {

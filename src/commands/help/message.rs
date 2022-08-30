@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashSet;
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
@@ -21,7 +21,7 @@ use crate::{
         interaction::InteractionComponent,
         levenshtein_distance, ChannelExt, ComponentExt,
     },
-    BotResult,
+    DEFAULT_PREFIX,
 };
 
 use super::failed_message_content;
@@ -32,7 +32,7 @@ use super::failed_message_content;
 #[alias("h")]
 #[usage("[command]")]
 #[example("", "recent", "osg")]
-async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     match args.next() {
         Some(arg) => match PrefixCommands::get().command(arg) {
             Some(cmd) => command_help(ctx, msg, cmd).await,
@@ -42,7 +42,7 @@ async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Bo
     }
 }
 
-async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> BotResult<()> {
+async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> Result<()> {
     let mut seen = HashSet::new();
 
     let dists: BTreeMap<_, _> = PrefixCommands::get()
@@ -59,7 +59,7 @@ async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> BotResult<
     Ok(())
 }
 
-async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> BotResult<()> {
+async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> Result<()> {
     let name = cmd.name();
     let prefix = ctx.guild_first_prefix(msg.guild_id).await;
     let mut fields = Vec::new();
@@ -163,12 +163,12 @@ async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> 
 
 async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
-        let mut prefixes = ctx.guild_prefixes(guild_id).await;
+        let mut prefixes = ctx.guild_prefixes(guild_id);
 
         if !prefixes.is_empty() {
             let prefix = prefixes.swap_remove(0);
 
-            if prefix == "<" && prefixes.len() == 1 {
+            if prefix == DEFAULT_PREFIX && prefixes.len() == 1 {
                 (None, prefix)
             } else {
                 let prefix_iter = prefixes.iter();
@@ -216,7 +216,7 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
     )
 }
 
-async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let owner = msg.author.id;
 
     let channel = match ctx.http.create_private_channel(owner).exec().await {
@@ -256,7 +256,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 pub async fn handle_help_category(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let value = component
         .data
         .values

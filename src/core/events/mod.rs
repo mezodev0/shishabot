@@ -1,13 +1,17 @@
 use std::{
-    fmt::{Display, Error, Formatter},
+    fmt::{Display, Formatter, Result as FmtResult},
     sync::Arc,
 };
 
-use eyre::Context as EyreContext;
+use eyre::{Context as EyreContext, Result};
 use futures::StreamExt;
 use twilight_gateway::{cluster::Events, Event};
+use twilight_model::gateway::{
+    payload::outgoing::UpdatePresence,
+    presence::{ActivityType, MinimalActivity, Status},
+};
 
-use crate::{util::Authored, BotResult};
+use crate::{util::Authored, DEFAULT_PREFIX};
 
 use self::{interaction::handle_interaction, message::handle_message};
 
@@ -42,7 +46,7 @@ struct CommandLocation<'a> {
 }
 
 impl Display for CommandLocation<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let guild = match self.cmd.guild_id() {
             Some(id) => id,
             None => return f.write_str("Private"),
@@ -82,26 +86,36 @@ pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
     }
 }
 
-async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {
+async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
     match event {
-        Event::GatewayInvalidateSession(reconnect) => {
-            if reconnect {
-                warn!("Gateway invalidated session for shard {shard_id}, but its reconnectable");
-            } else {
-                warn!("Gateway invalidated session for shard {shard_id}");
-            }
+        Event::GatewayInvalidateSession(true) => {
+            warn!("Gateway invalidated session for shard {shard_id}, but its reconnectable")
+        }
+        Event::GatewayInvalidateSession(false) => {
+            warn!("Gateway invalidated session for shard {shard_id}")
         }
         Event::GatewayReconnect => {
             info!("Gateway requested shard {shard_id} to reconnect")
         }
-        Event::GuildCreate(_) => {
-            todo!()
+        Event::GuildCreate(_) | Event::GuildDelete(_) => {
+            let count = ctx.cache.stats().guilds();
+
+            let activity = MinimalActivity {
+                kind: ActivityType::Watching,
+                name: format!("in {count} servers | {DEFAULT_PREFIX}help"),
+                url: None,
+            };
+
+            let req = UpdatePresence::new(vec![activity.into()], false, None, Status::Online)?;
+
+            ctx.cluster
+                .command(shard_id, &req)
+                .await
+                .context("failed to update activity")?;
         }
         Event::InteractionCreate(e) => handle_interaction(ctx, e.0).await,
         Event::MessageCreate(msg) => handle_message(ctx, msg.0).await,
-        Event::Ready(_) => {
-            info!("Shard {shard_id} is ready")
-        }
+        Event::Ready(_) => info!("Shard {shard_id} is ready"),
         Event::Resumed => info!("Shard {shard_id} is resumed"),
         Event::ShardConnected(_) => info!("Shard {shard_id} is connected"),
         Event::ShardConnecting(_) => info!("Shard {shard_id} is connecting..."),

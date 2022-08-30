@@ -1,3 +1,4 @@
+use eyre::Result;
 use twilight_http::{Error as HttpError, Response};
 use twilight_model::{
     channel::Message,
@@ -9,15 +10,13 @@ use twilight_model::{
 
 use crate::{
     core::Context,
-    error::Error,
     util::{
         builder::MessageBuilder, interaction::InteractionCommand, Authored, ChannelExt,
         InteractionCommandExt, MessageExt,
     },
-    BotResult,
 };
 
-type HttpResult<T> = Result<T, HttpError>;
+type HttpResult<T> = std::result::Result<T, HttpError>;
 
 pub enum CommandOrigin<'d> {
     Message { msg: &'d Message },
@@ -25,7 +24,7 @@ pub enum CommandOrigin<'d> {
 }
 
 impl CommandOrigin<'_> {
-    pub fn user_id(&self) -> BotResult<Id<UserMarker>> {
+    pub fn user_id(&self) -> Result<Id<UserMarker>> {
         match self {
             CommandOrigin::Message { msg } => Ok(msg.author.id),
             CommandOrigin::Interaction { command } => command.user_id(),
@@ -132,18 +131,10 @@ impl CommandOrigin<'_> {
     /// Respond with a red embed.
     ///
     /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> BotResult<()> {
+    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
-            Self::Message { msg } => msg
-                .error(ctx, content)
-                .await
-                .map(|_| ())
-                .map_err(Error::from),
-            Self::Interaction { command } => command
-                .error(ctx, content)
-                .await
-                .map(|_| ())
-                .map_err(Error::from),
+            Self::Message { msg } => Ok(msg.error(ctx, content).await.map(|_| ())?),
+            Self::Interaction { command } => Ok(command.error(ctx, content).await.map(|_| ())?),
         }
     }
 
@@ -151,18 +142,12 @@ impl CommandOrigin<'_> {
     ///
     /// In case of an interaction, be sure this is the first and only time you call this.
     /// The response will not be ephemeral.
-    pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> BotResult<()> {
+    pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
-            CommandOrigin::Message { msg } => msg
-                .error(ctx, content)
-                .await
-                .map(|_| ())
-                .map_err(Error::from),
-            CommandOrigin::Interaction { command } => command
-                .error_callback(ctx, content)
-                .await
-                .map(|_| ())
-                .map_err(Error::from),
+            CommandOrigin::Message { msg } => Ok(msg.error(ctx, content).await.map(|_| ())?),
+            CommandOrigin::Interaction { command } => {
+                Ok(command.error_callback(ctx, content).await.map(|_| ())?)
+            }
         }
     }
 }

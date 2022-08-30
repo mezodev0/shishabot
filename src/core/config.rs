@@ -1,12 +1,11 @@
 use std::{env, path::PathBuf};
 
+use eyre::{Context, ContextCompat, Result};
 use once_cell::sync::OnceCell;
 use twilight_model::id::{
     marker::{ChannelMarker, GuildMarker, UserMarker},
     Id,
 };
-
-use crate::{BotResult, Error};
 
 static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
@@ -20,10 +19,9 @@ pub struct BotConfig {
 
 #[derive(Debug)]
 pub struct Paths {
-    pub backgrounds: PathBuf,
-    pub cards: PathBuf,
+    pub folders: PathBuf,
     pub maps: PathBuf,
-    pub website: PathBuf,
+    pub server_settings: PathBuf,
 }
 
 #[derive(Debug)]
@@ -40,7 +38,7 @@ impl BotConfig {
             .expect("`BotConfig::init` must be called first")
     }
 
-    pub fn init() -> BotResult<()> {
+    pub fn init() -> Result<()> {
         let config = BotConfig {
             tokens: Tokens {
                 discord: env_var("DISCORD_TOKEN")?,
@@ -48,17 +46,16 @@ impl BotConfig {
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
             },
             paths: Paths {
-                backgrounds: env_var("BG_PATH")?,
-                cards: env_var("CARDS_REPO_PATH")?,
+                folders: env_var("FOLDERS_PATH")?,
                 maps: env_var("MAP_PATH")?,
-                website: env_var("WEBSITE_PATH")?,
+                server_settings: env_var("SERVER_SETTINGS_PATH")?,
             },
             owners: env_var("OWNERS_USER_ID")?,
             dev_guild: env_var("DEV_GUILD_ID")?,
         };
 
         if CONFIG.set(config).is_err() {
-            warn!("CONFIG was already set");
+            error!("CONFIG was already set");
         }
 
         Ok(())
@@ -107,12 +104,13 @@ env_kind! {
     },
 }
 
-fn env_var<T: EnvKind>(name: &'static str) -> BotResult<T> {
-    let value = env::var(name).map_err(|_| Error::MissingEnvVariable(name))?;
+fn env_var<T: EnvKind>(name: &'static str) -> Result<T> {
+    let value = env::var(name).with_context(|| format!("missing env variable `{name}`"))?;
 
-    T::from_str(&value).ok_or(Error::ParsingEnvVariable {
-        name,
-        value,
-        expected: T::EXPECTED,
+    T::from_str(&value).with_context(|| {
+        format!(
+            "failed to parse env variable `{name}={value}`; expected {expected}",
+            expected = T::EXPECTED
+        )
     })
 }

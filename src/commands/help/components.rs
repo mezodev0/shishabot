@@ -1,5 +1,6 @@
 use std::{fmt::Write, mem};
 
+use eyre::Result;
 use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
 use twilight_model::application::component::{button::ButtonStyle, ActionRow, Button, Component};
 
@@ -14,7 +15,6 @@ use crate::{
         interaction::InteractionComponent,
         ComponentExt,
     },
-    BotResult,
 };
 
 use super::{option_fields, parse_select_menu, AUTHORITY_STATUS};
@@ -138,7 +138,7 @@ impl CommandIter {
 pub async fn handle_help_component(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let mut title = component
         .message
         .embeds

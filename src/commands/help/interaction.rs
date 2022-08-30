@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::SlashCommand;
+use eyre::Result;
 use time::OffsetDateTime;
 use twilight_interactions::command::{
     ApplicationCommandData, AutocompleteValue, CommandModel, CreateCommand,
@@ -21,7 +22,6 @@ use crate::{
         numbers::with_comma_int,
         CowUtils, InteractionCommandExt,
     },
-    BotResult,
 };
 
 use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};
@@ -43,7 +43,7 @@ struct Help_ {
     command: AutocompleteValue<String>,
 }
 
-pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Help_::from_interaction(command.input_data())?;
 
     match args.command {
@@ -85,7 +85,7 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> B
     }
 }
 
-async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
+async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let id = ctx
         .cache
         .current_user(|user| user.id)
@@ -184,7 +184,7 @@ async fn help_slash_command(
     ctx: &Context,
     command: InteractionCommand,
     cmd: &SlashCommand,
-) -> BotResult<()> {
+) -> Result<()> {
     let ApplicationCommandData {
         name,
         description,

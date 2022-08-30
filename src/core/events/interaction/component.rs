@@ -1,7 +1,5 @@
 use std::{mem, sync::Arc};
 
-use eyre::Report;
-
 use crate::{
     commands::help::{handle_help_category, handle_help_component},
     core::{events::log_command, Context},
@@ -28,7 +26,6 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
     };
 
     if let Err(err) = res {
-        let wrap = format!("failed to process component `{name}`");
-        error!("{:?}", Report::new(err).wrap_err(wrap));
+        error!("failed to process component `{name}`: {err:?}");
     }
 }

@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use eyre::Result;
+
 use crate::{
     core::Context,
     error::InvalidModal,
@@ -8,7 +10,6 @@ use crate::{
         interaction::{InteractionComponent, InteractionModal},
         Authored, ComponentExt, ModalExt,
     },
-    BotResult,
 };
 
 use super::Pages;
@@ -16,7 +17,7 @@ use super::Pages;
 pub(super) async fn remove_components(
     ctx: &Context,
     component: &InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let builder = MessageBuilder::new()
         .components(Vec::new())
         .content(&component.message.content);
@@ -30,7 +31,7 @@ pub async fn handle_pagination_component(
     ctx: Arc<Context>,
     component: InteractionComponent,
     page_fn: fn(&mut Pages),
-) -> BotResult<()> {
+) -> Result<()> {
     let (builder, defer_components) = {
         let mut guard = ctx.paginations.lock(&component.message.id).await;
 
@@ -66,7 +67,7 @@ pub async fn handle_pagination_component(
 pub async fn handle_pagination_start(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let f = |pages: &mut Pages| pages.index = 0;
 
     handle_pagination_component(ctx, component, f).await
@@ -75,7 +76,7 @@ pub async fn handle_pagination_start(
 pub async fn handle_pagination_back(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let f = |pages: &mut Pages| pages.index -= pages.per_page;
 
     handle_pagination_component(ctx, component, f).await
@@ -84,7 +85,7 @@ pub async fn handle_pagination_back(
 pub async fn handle_pagination_step(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let f = |pages: &mut Pages| pages.index += pages.per_page;
 
     handle_pagination_component(ctx, component, f).await
@@ -93,7 +94,7 @@ pub async fn handle_pagination_step(
 pub async fn handle_pagination_end(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let f = |pages: &mut Pages| pages.index = pages.last_index;
 
     handle_pagination_component(ctx, component, f).await
@@ -102,7 +103,7 @@ pub async fn handle_pagination_end(
 pub async fn handle_pagination_custom(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let max_page = {
         let guard = ctx.paginations.lock(&component.message.id).await;
 
@@ -133,7 +134,7 @@ pub async fn handle_pagination_custom(
     Ok(())
 }
 
-pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal) -> BotResult<()> {
+pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
     let input = modal
         .data
         .components
@@ -201,7 +202,7 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
 pub async fn handle_profile_compact(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let f = |pages: &mut Pages| pages.index = 0;
 
     handle_pagination_component(ctx, component, f).await
@@ -210,16 +211,13 @@ pub async fn handle_profile_compact(
 pub async fn handle_profile_medium(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let f = |pages: &mut Pages| pages.index = 1;
 
     handle_pagination_component(ctx, component, f).await
 }
 
-pub async fn handle_profile_full(
-    ctx: Arc<Context>,
-    component: InteractionComponent,
-) -> BotResult<()> {
+pub async fn handle_profile_full(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
     let f = |pages: &mut Pages| pages.index = 2;
 
     handle_pagination_component(ctx, component, f).await

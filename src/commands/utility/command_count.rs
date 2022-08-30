@@ -6,7 +6,7 @@ use twilight_interactions::command::CreateCommand;
 
 use crate::{
     core::commands::CommandOrigin, pagination::CommandCountPagination,
-    util::interaction::InteractionCommand, BotResult, Context,
+    util::interaction::InteractionCommand, Context, Result,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -15,7 +15,7 @@ use crate::{
 /// Display a list of popular commands
 pub struct Commands;
 
-pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     commands(ctx, (&mut command).into()).await
 }
 
@@ -23,11 +23,11 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 #[desc("List of popular commands")]
 #[group(Utility)]
 #[flags(SKIP_DEFER)]
-async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     commands(ctx, msg.into()).await
 }
 
-async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let mut cmds: Vec<(String, u32)> = Vec::new();
     cmds.sort_unstable_by(|&(_, a), &(_, b)| b.cmp(&a));
 

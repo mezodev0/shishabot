@@ -1,109 +1,116 @@
-use eyre::Report;
+use eyre::{Context as _, Result};
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use twilight_model::id::{
-    marker::{GuildMarker, UserMarker},
+    marker::{ChannelMarker, GuildMarker},
     Id,
 };
 
-use crate::{core::commands::prefix::Stream, BotResult, Context};
+use crate::{
+    core::{
+        commands::prefix::Stream,
+        settings::{Prefix, Prefixes, Server},
+        BotConfig,
+    },
+    Context, DEFAULT_PREFIX,
+};
 
 impl Context {
-    pub async fn user_config(&self, user_id: Id<UserMarker>) -> BotResult<UserConfig> {
-        match self.psql().get_user_config(user_id).await? {
-            Some(config) => Ok(config),
-            None => {
-                let config = UserConfig::default();
-                self.psql().insert_user_config(user_id, &config).await?;
-
-                Ok(config)
-            }
-        }
-    }
-
-    async fn guild_config_<'g, F, O>(&self, guild_id: Id<GuildMarker>, f: F) -> O
+    pub fn guild_settings<F, O>(&self, guild_id: Id<GuildMarker>, f: F) -> Option<O>
     where
-        F: FnOnce(&GuildConfig) -> O,
+        F: FnOnce(&Server) -> O,
     {
-        if let Some(config) = self.data.guilds.pin().get(&guild_id) {
-            return f(config);
-        }
-
-        let config = GuildConfig::default();
-
-        if let Err(err) = self.psql().upsert_guild_config(guild_id, &config).await {
-            let wrap = format!("failed to insert guild {guild_id}");
-            let report = Report::new(err).wrap_err(wrap);
-            warn!("{report:?}");
-        }
-
-        let res = f(&config);
-        self.data.guilds.pin().insert(guild_id, config);
-
-        res
+        self.root_settings.servers.pin().get(&guild_id).map(f)
     }
 
-    pub async fn guild_prefixes(&self, guild_id: Id<GuildMarker>) -> Prefixes {
-        self.guild_config_(guild_id, |config| config.prefixes.clone())
-            .await
+    pub fn guild_prefixes(&self, guild_id: Id<GuildMarker>) -> Prefixes {
+        self.guild_settings(guild_id, |server| server.prefixes.clone())
+            .unwrap_or_else(|| smallvec::smallvec![DEFAULT_PREFIX.into()])
     }
 
-    pub async fn guild_prefixes_find(
+    pub fn guild_prefixes_find(
         &self,
         guild_id: Id<GuildMarker>,
         stream: &Stream<'_>,
     ) -> Option<Prefix> {
-        let f = |config: &GuildConfig| {
-            config
+        let f = |server: &Server| {
+            server
                 .prefixes
                 .iter()
                 .find(|p| stream.starts_with(p))
                 .cloned()
         };
 
-        self.guild_config_(guild_id, f).await
+        self.guild_settings(guild_id, f).flatten()
     }
 
     pub async fn guild_first_prefix(&self, guild_id: Option<Id<GuildMarker>>) -> Prefix {
-        match guild_id {
-            Some(guild_id) => {
-                self.guild_config_(guild_id, |config| config.prefixes[0].clone())
-                    .await
-            }
-            None => "<".into(),
-        }
+        guild_id
+            .and_then(|id| self.guild_settings(id, |server| server.prefixes.get(0).cloned()))
+            .flatten()
+            .unwrap_or_else(|| DEFAULT_PREFIX.into())
     }
 
-    pub async fn guild_with_lyrics(&self, guild_id: Id<GuildMarker>) -> bool {
-        self.guild_config_(guild_id, GuildConfig::with_lyrics).await
-    }
+    pub async fn insert_guild_settings(
+        &self,
+        guild_id: Id<GuildMarker>,
+        input_channel: Id<ChannelMarker>,
+        output_channel: Id<ChannelMarker>,
+    ) -> Result<()> {
+        let server = Server::new(input_channel, output_channel);
 
-    pub async fn guild_show_retries(&self, guild_id: Id<GuildMarker>) -> bool {
-        self.guild_config_(guild_id, GuildConfig::show_retries)
-            .await
-    }
-
-    pub async fn guild_track_limit(&self, guild_id: Id<GuildMarker>) -> u8 {
-        self.guild_config_(guild_id, GuildConfig::track_limit).await
-    }
-
-    pub async fn guild_config(&self, guild_id: Id<GuildMarker>) -> GuildConfig {
-        self.guild_config_(guild_id, GuildConfig::to_owned).await
-    }
-
-    pub async fn update_guild_config<F>(&self, guild_id: Id<GuildMarker>, f: F) -> BotResult<()>
-    where
-        F: FnOnce(&mut GuildConfig),
-    {
-        let guilds = &self.data.guilds;
-
-        let mut config = guilds
+        let new_entry = self
+            .root_settings
+            .servers
             .pin()
-            .get(&guild_id)
-            .map(GuildConfig::to_owned)
-            .unwrap_or_default();
+            .insert(guild_id, server)
+            .is_none();
 
-        f(&mut config);
-        self.psql().upsert_guild_config(guild_id, &config).await?;
-        guilds.pin().insert(guild_id, config);
+        if new_entry {
+            self.store_guild_settings().await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn update_guild_settings<F>(&self, guild_id: Id<GuildMarker>, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Server),
+    {
+        let valid_entry = self
+            .root_settings
+            .servers
+            .pin()
+            .compute_if_present(&guild_id, |_, server| {
+                let mut server = server.to_owned();
+                f(&mut server);
+
+                Some(server)
+            })
+            .is_some();
+
+        if valid_entry {
+            self.store_guild_settings().await?;
+        }
+
+        Ok(())
+    }
+
+    async fn store_guild_settings(&self) -> Result<()> {
+        let bytes =
+            serde_json::to_vec(&self.root_settings).context("failed to serialize root settings")?;
+
+        let path = &BotConfig::get().paths.server_settings;
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .await
+            .context("failed to open server settings file")?;
+
+        file.write_all(&bytes)
+            .await
+            .context("failed writing to server settings file")?;
 
         Ok(())
     }

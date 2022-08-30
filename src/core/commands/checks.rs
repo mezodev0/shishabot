@@ -1,7 +1,7 @@
 use twilight_model::{
     guild::Permissions,
     id::{
-        marker::{GuildMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, UserMarker},
         Id,
     },
 };
@@ -13,20 +13,18 @@ use crate::core::{buckets::BucketName, Context};
 pub async fn check_authority(
     ctx: &Context,
     author: Id<UserMarker>,
+    channel: Id<ChannelMarker>,
     guild: Option<Id<GuildMarker>>,
-) -> Option<String> {
-    let (guild_id, (permissions, roles)) = match guild {
-        Some(guild) => (guild, ctx.cache.get_guild_permissions(author, guild)),
-        None => return None,
-    };
+) -> Option<&'static str> {
+    let permissions = ctx.cache.get_channel_permissions(author, channel, guild);
 
-    if permissions.contains(Permissions::ADMINISTRATOR | Permissions::MANAGE_CHANNELS) {
+    if permissions.intersects(Permissions::ADMINISTRATOR | Permissions::MANAGE_CHANNELS) {
         None
     } else {
         let content =
             "You need admin permission or manage channels permission to use this command.";
 
-        Some(content.to_owned())
+        Some(content)
     }
 }
 

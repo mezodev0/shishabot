@@ -1,19 +1,18 @@
 use command_macros::command;
-use smallstr::SmallString;
+use eyre::Result;
 
 use crate::{
+    core::settings::Prefix,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
-    BotResult, Context,
+    Context, DEFAULT_PREFIX,
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 
-pub type Prefix = SmallString<[u8; 2]>;
-
 #[command]
-#[desc("Change my prefixes for a server")]
+#[desc("Change the prefixes for a server")]
 #[help(
-    "Change my prefixes for a server.\n\
+    "Change the prefixes for a server.\n\
     To check the current prefixes for this server, \
     don't pass any arguments.\n\
     Otherwise, the first argument must be either `add` or `remove`.\n\
@@ -26,7 +25,7 @@ pub type Prefix = SmallString<[u8; 2]>;
 #[alias("prefixes")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let guild_id = msg.guild_id.unwrap();
 
     let action = match args.next() {
@@ -43,7 +42,7 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
             return Ok(());
         }
         None => {
-            let prefixes = ctx.guild_prefixes(guild_id).await;
+            let prefixes = ctx.guild_prefixes(guild_id);
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
             let builder = MessageBuilder::new().embed(content);
@@ -69,29 +68,29 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         return Ok(());
     }
 
-    let update_fut = ctx.update_guild_config(guild_id, |config| match action {
+    let update_fut = ctx.update_guild_settings(guild_id, |server| match action {
         Action::Add => {
-            config.prefixes.extend(args);
+            server.prefixes.extend(args);
 
-            config.prefixes.sort_unstable_by(|a, b| {
-                if a == "<" {
+            server.prefixes.sort_unstable_by(|a, b| {
+                if a == DEFAULT_PREFIX {
                     Ordering::Less
-                } else if b == "<" {
+                } else if b == DEFAULT_PREFIX {
                     Ordering::Greater
                 } else {
                     a.cmp(b)
                 }
             });
 
-            config.prefixes.dedup();
-            config.prefixes.truncate(5);
+            server.prefixes.dedup();
+            server.prefixes.truncate(5);
         }
         Action::Remove => {
             for arg in args {
-                config.prefixes.retain(|p| p != &arg);
+                server.prefixes.retain(|p| p != &arg);
 
-                if config.prefixes.is_empty() {
-                    config.prefixes.push(arg);
+                if server.prefixes.is_empty() {
+                    server.prefixes.push(arg);
 
                     break;
                 }
@@ -106,7 +105,7 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
     }
 
     let mut content = "Prefixes updated!\n".to_owned();
-    let prefixes = ctx.guild_prefixes(guild_id).await;
+    let prefixes = ctx.guild_prefixes(guild_id);
     current_prefixes(&mut content, &prefixes);
     let builder = MessageBuilder::new().embed(content);
     msg.create_message(&ctx, &builder).await?;

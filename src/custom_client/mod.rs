@@ -13,10 +13,7 @@ use serde::Serialize;
 use tokio::time::{sleep, Duration};
 use twilight_model::channel::Attachment;
 
-use crate::{
-    core::BotConfig,
-    util::{constants::OSU_BASE, ExponentialBackoff},
-};
+use crate::util::{constants::OSU_BASE, ExponentialBackoff};
 
 pub use self::error::*;
 
@@ -60,7 +57,6 @@ impl CustomClient {
             .enable_http1()
             .build();
 
-        let config = BotConfig::get();
         let client = HyperClient::builder().build(connector);
 
         let ratelimiter = |per_second| {

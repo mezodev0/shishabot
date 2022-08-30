@@ -3,6 +3,7 @@ pub use self::{
     config::BotConfig,
     context::Context,
     events::event_loop,
+    replay_queue::{ReplayQueue, ReplayStatus},
 };
 
 mod cache;
@@ -10,7 +11,9 @@ mod cluster;
 mod config;
 mod context;
 mod events;
+mod replay_queue;
 
 pub mod buckets;
 pub mod commands;
 pub mod logging;
+pub mod settings;

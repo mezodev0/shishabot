@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eyre::Report;
+use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
         Context,
     },
     util::ChannelExt,
-    BotResult,
+    DEFAULT_PREFIX,
 };
 
 use self::parse::*;
@@ -33,8 +33,10 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
     stream.take_while_char(char::is_whitespace);
 
     let prefix = match msg.guild_id {
-        Some(guild_id) => ctx.guild_prefixes_find(guild_id, &stream).await,
-        None => stream.starts_with("<").then(|| "<".into()),
+        Some(guild_id) => ctx.guild_prefixes_find(guild_id, &stream),
+        None => stream
+            .starts_with(DEFAULT_PREFIX)
+            .then(|| DEFAULT_PREFIX.into()),
     };
 
     if let Some(prefix) = prefix {
@@ -56,8 +58,7 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
         Ok(ProcessResult::Success) => info!("Processed command `{name}`"),
         Ok(result) => info!("Command `{name}` was not processed: {result:?}"),
         Err(err) => {
-            let wrap = format!("failed to process prefix command `{name}`");
-            error!("{:?}", Report::new(err).wrap_err(wrap));
+            error!("failed to process prefix command `{name}`: {err:?}");
         }
     }
 }
@@ -68,7 +69,7 @@ async fn process_command(
     msg: &Message,
     stream: Stream<'_>,
     num: Option<u64>,
-) -> BotResult<ProcessResult> {
+) -> Result<ProcessResult> {
     // Only in guilds?
     if (cmd.flags.authority() || cmd.flags.only_guilds()) && msg.guild_id.is_none() {
         let content = "That command is only available in servers";
@@ -85,7 +86,10 @@ async fn process_command(
     // Does bot have sufficient permissions to send response in a guild?
     if let Some(guild) = msg.guild_id {
         let user = ctx.cache.current_user(|user| user.id)?;
-        let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
+
+        let permissions = ctx
+            .cache
+            .get_channel_permissions(user, channel, Some(guild));
 
         if !permissions.contains(Permissions::SEND_MESSAGES) {
             return Ok(ProcessResult::NoSendPermission);
@@ -124,7 +128,7 @@ async fn process_command(
 
     // Only for authorities?
     if cmd.flags.authority() {
-        match check_authority(&ctx, msg.author.id, msg.guild_id).await {
+        match check_authority(&ctx, msg.author.id, msg.channel_id, msg.guild_id).await {
             None => {}
             Some(content) => {
                 let _ = msg.error(&ctx, content).await;

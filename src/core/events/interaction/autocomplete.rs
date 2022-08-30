@@ -1,7 +1,5 @@
 use std::{mem, sync::Arc};
 
-use eyre::Report;
-
 use crate::{
     commands::help::slash_help,
     core::{events::log_command, Context},
@@ -18,7 +16,6 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
     };
 
     if let Err(err) = res {
-        let wrap = format!("failed to process autocomplete `{name}`");
-        error!("{:?}", Report::new(err).wrap_err(wrap));
+        error!("failed to process autocomplete `{name}`: {err:?}");
     }
 }

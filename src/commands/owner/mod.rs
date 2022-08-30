@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 use self::cache::*;
@@ -35,7 +36,7 @@ pub struct OwnerCache;
 //     number: Option<i64>,
 // }
 
-async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Owner::from_interaction(command.input_data())? {
         Owner::Cache(_) => cache(ctx, command).await,
     }
