@@ -101,6 +101,7 @@ async fn process_command(
         .buckets
         .get(BucketName::All)
         .lock()
+        .unwrap()
         .take(msg.author.id.get());
 
     if ratelimit > 0 {

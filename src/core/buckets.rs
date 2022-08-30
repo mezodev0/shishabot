@@ -1,7 +1,6 @@
-use std::hash::Hash;
+use std::{hash::Hash, sync::Mutex};
 
 use hashbrown::HashMap;
-use parking_lot::Mutex;
 use time::OffsetDateTime;
 
 use crate::util::hasher::SimpleBuildHasher;
