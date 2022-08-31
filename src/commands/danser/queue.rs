@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::{commands::CommandOrigin, Context, ReplayStatus},
+    core::{commands::CommandOrigin, Context, ReplayData, ReplayStatus},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         interaction::InteractionCommand,
@@ -42,20 +42,21 @@ async fn queue(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         let status = *ctx.replay_queue.status.lock().await;
 
         for (replay_data, idx) in queue_guard.iter().zip(1..) {
-            let name = &replay_data
+            let name = replay_data
                 .path
-                // TODO
-                // .replace("../Downloads/", "")
-                // .replace('_', " ")
-                // .replace(".osr", "");
-                ;
+                .file_name()
+                .expect("missing file name")
+                .to_string_lossy();
+
+            let extension = name.rfind(".osr").unwrap_or(name.len());
+            let name = name[..extension].replace('_', " ");
 
             let status = (idx == 1)
                 .then_some(status)
                 .unwrap_or(ReplayStatus::Waiting);
 
             let user = replay_data.user;
-            let _ = writeln!(s, "{idx}. {name:?} queued by <@{user}> - {status}");
+            let _ = writeln!(s, "{idx}. {name} queued by <@{user}> - {status}");
         }
 
         s

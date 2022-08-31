@@ -40,7 +40,7 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
         end,
     } = args;
 
-    if matches!(attachment.filename.split('.').last(), Some("osr")) {
+    if !matches!(attachment.filename.split('.').last(), Some("osr")) {
         let content = "The attachment must be a .osr file!";
         orig.error(&ctx, content).await?;
 
