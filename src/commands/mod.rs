@@ -3,6 +3,7 @@ use std::str::FromStr;
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandOption, CreateOption};
 
+pub mod danser;
 pub mod help;
 pub mod owner;
 pub mod utility;

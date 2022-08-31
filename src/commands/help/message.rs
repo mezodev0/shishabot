@@ -282,8 +282,8 @@ pub async fn handle_help_category(
         "tracking" => PrefixCommandGroup::Tracking,
         "twitch" => PrefixCommandGroup::Twitch,
         "games" => PrefixCommandGroup::Games,
+        "danser" => PrefixCommandGroup::Danser,
         "utility" => PrefixCommandGroup::Utility,
-        "songs" => PrefixCommandGroup::Songs,
         _ => return Err(InvalidHelpState::UnknownValue(value).into()),
     };
 
@@ -392,18 +392,18 @@ fn help_select_menu(default: Option<PrefixCommandGroup>) -> Vec<Component> {
             value: "games".to_owned(),
         },
         SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Danser)),
+            description: None,
+            emoji: None,
+            label: "Danser".to_owned(),
+            value: "danser".to_owned(),
+        },
+        SelectMenuOption {
             default: matches!(default, Some(PrefixCommandGroup::Utility)),
             description: None,
             emoji: None,
             label: "Utility".to_owned(),
             value: "utility".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Songs)),
-            description: None,
-            emoji: None,
-            label: "Songs".to_owned(),
-            value: "songs".to_owned(),
         },
     ];
 
