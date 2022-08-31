@@ -133,13 +133,17 @@ async fn addskin(ctx: &Context, msg: &Message) -> CommandResult {
 
     let mut counter = 0;
 
-    while skins
+    while let Some(skin) = skins
         .next_entry()
         .await
         .context("failed to get entry of `../Skins/`")?
-        .is_some()
     {
+        let file_name = skin.file_name();
         counter += 1;
+
+        if file_name.to_string_lossy() == skinname {
+            break;
+        }
     }
 
     let content = format!("Added skin to list at index `{counter}`");
