@@ -11,6 +11,4 @@ Cargo.lock
 
 .env
 /logs
-
-# Server specific settings
 /data
