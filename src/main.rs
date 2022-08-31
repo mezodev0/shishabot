@@ -1,5 +1,6 @@
 // TODO: uncomment
 // #![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
+#![allow(unused)]
 
 #[macro_use]
 extern crate eyre;
@@ -22,7 +23,7 @@ use tokio::{runtime::Builder as RuntimeBuilder, signal};
 
 use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context};
 
-pub const DEFAULT_PREFIX: &str = "!!";
+pub const DEFAULT_PREFIX: &str = "$";
 
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
@@ -37,7 +38,7 @@ fn main() {
 }
 
 async fn async_main() -> Result<()> {
-    dotenv::dotenv()?;
+    let _ = dotenv::dotenv().expect("failed to parse .env file");
     let _log_worker_guard = logging::initialize();
 
     // Load config file

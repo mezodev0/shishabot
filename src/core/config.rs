@@ -91,12 +91,7 @@ env_kind! {
     Id<GuildMarker>: s => { s.parse().ok().map(Id::new) },
     Id<ChannelMarker>: s => { s.parse().ok().map(Id::new) },
     Vec<Id<UserMarker>>: s => {
-        if !(s.starts_with('[') && s.ends_with(']')) {
-            return None
-        }
-
-        s[1..s.len() - 1]
-            .split(',')
+        s.split(',')
             .map(str::trim)
             .map(str::parse)
             .collect::<Result<Vec<_>, _>>()

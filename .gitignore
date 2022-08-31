@@ -13,4 +13,4 @@ Cargo.lock
 /logs
 
 # Server specific settings
-src/server_settings.json
+/data

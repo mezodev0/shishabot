@@ -40,7 +40,13 @@ impl Context {
                 .cloned()
         };
 
-        self.guild_settings(guild_id, f).flatten()
+        self.guild_settings(guild_id, f)
+            .or_else(|| {
+                stream
+                    .starts_with(DEFAULT_PREFIX)
+                    .then_some(Some(DEFAULT_PREFIX.into()))
+            })
+            .flatten()
     }
 
     pub async fn guild_first_prefix(&self, guild_id: Option<Id<GuildMarker>>) -> Prefix {

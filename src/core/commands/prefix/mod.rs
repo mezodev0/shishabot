@@ -37,14 +37,6 @@ type PrefixTrie = Trie<&'static str, &'static PrefixCommand>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PrefixCommandGroup {
-    AllModes,
-    Osu,
-    Taiko,
-    Catch,
-    Mania,
-    Tracking,
-    Twitch,
-    Games,
     Danser,
     Utility,
 }
@@ -54,20 +46,11 @@ impl PrefixCommandGroup {
         match self {
             Self::Danser => ":question:",
             Self::Utility => ":tools:",
-            _ => panic!("no emote for {self:?}"),
         }
     }
 
     pub fn name(self) -> &'static str {
         match self {
-            Self::AllModes => "all osu! modes",
-            Self::Osu => "osu!standard",
-            Self::Taiko => "osu!taiko",
-            Self::Catch => "osu!catch",
-            Self::Mania => "osu!mania",
-            Self::Tracking => "osu!tracking",
-            Self::Twitch => "twitch",
-            Self::Games => "games",
             Self::Danser => "danser",
             Self::Utility => "utility",
         }
