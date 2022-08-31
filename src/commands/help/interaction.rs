@@ -65,15 +65,15 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
             let name = name.cow_to_ascii_lowercase();
             let arg = name.trim();
 
-            let choices = match (arg, SlashCommands::get().descendants(arg)) {
-                ("", _) | (_, None) => Vec::new(),
-                (_, Some(cmds)) => cmds
+            let choices = match SlashCommands::get().descendants(arg) {
+                Some(cmds) => cmds
                     .map(|cmd| CommandOptionChoice::String {
                         name: cmd.to_owned(),
                         name_localizations: None,
                         value: cmd.to_owned(),
                     })
                     .collect(),
+                None => Vec::new(),
             };
 
             command.autocomplete(&ctx, choices).await?;
