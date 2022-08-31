@@ -6,7 +6,7 @@ use once_cell::sync::OnceCell;
 use radix_trie::{iter::Keys, Trie, TrieCommon};
 use twilight_model::application::command::Command;
 
-use crate::commands::{help::*, owner::*, utility::*};
+use crate::commands::{danser::*, help::*, owner::*, utility::*};
 
 pub use self::command::SlashCommand;
 
@@ -42,6 +42,7 @@ impl SlashCommands {
                 Owner => OWNER_SLASH,
                 Ping => PING_SLASH,
                 Prune => PRUNE_SLASH,
+                Queue => QUEUE_SLASH,
                 Roll => ROLL_SLASH,
             }
         })

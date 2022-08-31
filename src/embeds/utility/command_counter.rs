@@ -7,7 +7,6 @@ use crate::{
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
-        constants::SYMBOLS,
         datetime::how_long_ago_text,
     },
 };
@@ -29,11 +28,7 @@ impl CommandCounterEmbed {
         description.push_str("```\n");
 
         for ((name, amount), i) in list.into_iter().zip(pages.index + 1..) {
-            let _ = writeln!(
-                description,
-                "{i:>2} {:1} # {name:<len$} => {amount}",
-                SYMBOLS.get(i - 1).unwrap_or(&"")
-            );
+            let _ = writeln!(description, "{i:>2} # {name:<len$} => {amount}");
         }
 
         description.push_str("```");

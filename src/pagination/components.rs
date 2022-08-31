@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use eyre::Result;
+use eyre::{ContextCompat, Result};
 
 use crate::{
     core::Context,
-    error::InvalidModal,
     util::{
         builder::{MessageBuilder, ModalBuilder},
         interaction::{InteractionComponent, InteractionModal},
@@ -139,10 +138,8 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
         .data
         .components
         .first()
-        .ok_or(InvalidModal::MissingPageInput)?
-        .components
-        .first()
-        .ok_or(InvalidModal::MissingPageInput)?;
+        .and_then(|component| component.components.first())
+        .context("missing input for page number")?;
 
     let page: usize = if let Some(Ok(n)) = input.value.as_deref().map(str::parse) {
         n

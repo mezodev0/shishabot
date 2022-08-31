@@ -1,5 +1,5 @@
 pub use self::{
-    cache::{Cache, CacheMiss},
+    cache::Cache,
     config::BotConfig,
     context::Context,
     events::event_loop,

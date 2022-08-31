@@ -5,7 +5,7 @@ use futures::Future;
 use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
 
-use crate::commands::{help::HELP_PREFIX, utility::*};
+use crate::commands::{danser::*, help::HELP_PREFIX, utility::*};
 
 pub use self::{args::Args, command::PrefixCommand, stream::Stream};
 
@@ -45,32 +45,31 @@ pub enum PrefixCommandGroup {
     Tracking,
     Twitch,
     Games,
+    Danser,
     Utility,
-    Songs,
 }
 
 impl PrefixCommandGroup {
     pub fn emote(self) -> &'static str {
         match self {
-            PrefixCommandGroup::Games => ":video_game:",
-            PrefixCommandGroup::Utility => ":tools:",
-            PrefixCommandGroup::Songs => ":musical_note:",
+            Self::Danser => ":question:",
+            Self::Utility => ":tools:",
             _ => panic!("no emote for {self:?}"),
         }
     }
 
     pub fn name(self) -> &'static str {
         match self {
-            PrefixCommandGroup::AllModes => "all osu! modes",
-            PrefixCommandGroup::Osu => "osu!standard",
-            PrefixCommandGroup::Taiko => "osu!taiko",
-            PrefixCommandGroup::Catch => "osu!catch",
-            PrefixCommandGroup::Mania => "osu!mania",
-            PrefixCommandGroup::Tracking => "osu!tracking",
-            PrefixCommandGroup::Twitch => "twitch",
-            PrefixCommandGroup::Games => "games",
-            PrefixCommandGroup::Utility => "utility",
-            PrefixCommandGroup::Songs => "songs",
+            Self::AllModes => "all osu! modes",
+            Self::Osu => "osu!standard",
+            Self::Taiko => "osu!taiko",
+            Self::Catch => "osu!catch",
+            Self::Mania => "osu!mania",
+            Self::Tracking => "osu!tracking",
+            Self::Twitch => "twitch",
+            Self::Games => "games",
+            Self::Danser => "danser",
+            Self::Utility => "utility",
         }
     }
 }
@@ -87,6 +86,7 @@ impl PrefixCommands {
                 PING_PREFIX,
                 PREFIX_PREFIX,
                 PRUNE_PREFIX,
+                QUEUE_PREFIX,
                 ROLL_PREFIX,
             }
         })

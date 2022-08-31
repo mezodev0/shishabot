@@ -4,14 +4,13 @@ use std::{
     slice::Iter,
 };
 
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Score, UserStatistics};
-use time::OffsetDateTime;
+use eyre::{Context as _, Result};
+use rosu_v2::prelude::{Beatmap, GameMods, Score, UserStatistics};
 use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
     core::{BotConfig, Context},
-    error::MapFileError,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, ScoreExt},
 };
 
@@ -131,14 +130,25 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
     100 * passed / total
 }
 
-pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf, MapFileError> {
+pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf> {
     let mut map_path = BotConfig::get().paths.maps.clone();
     map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {
-        let bytes = ctx.client().get_map_file(map_id).await?;
-        let mut file = File::create(&map_path).await?;
-        file.write_all(&bytes).await?;
+        let bytes = ctx
+            .client()
+            .get_map_file(map_id)
+            .await
+            .context("failed to download .osu file")?;
+
+        let mut file = File::create(&map_path)
+            .await
+            .with_context(|| format!("failed to create file `{map_path:?}`"))?;
+
+        file.write_all(&bytes)
+            .await
+            .with_context(|| format!("failed writing to file `{map_path:?}`"))?;
+
         info!("Downloaded {map_id}.osu successfully");
     }
 
@@ -444,161 +454,4 @@ impl BonusPP {
 
         round(stats.pp - pp).clamp(0.0, Self::MAX)
     }
-}
-
-pub trait SortableScore {
-    fn acc(&self) -> f32;
-    fn bpm(&self) -> f32;
-    fn ended_at(&self) -> OffsetDateTime;
-    fn map_id(&self) -> u32;
-    fn mapset_id(&self) -> u32;
-    fn max_combo(&self) -> u32;
-    fn mode(&self) -> GameMode;
-    fn mods(&self) -> GameMods;
-    fn n_misses(&self) -> u32;
-    fn pp(&self) -> Option<f32>;
-    fn score(&self) -> u32;
-    fn score_id(&self) -> u64;
-    fn seconds_drain(&self) -> u32;
-    fn stars(&self) -> f32;
-    fn total_hits_sort(&self) -> u32;
-}
-
-impl SortableScore for Score {
-    fn acc(&self) -> f32 {
-        self.accuracy
-    }
-
-    fn bpm(&self) -> f32 {
-        self.map.as_ref().map_or(0.0, |map| map.bpm)
-    }
-
-    fn ended_at(&self) -> OffsetDateTime {
-        self.ended_at
-    }
-
-    fn map_id(&self) -> u32 {
-        self.map.as_ref().map_or(0, |map| map.map_id)
-    }
-
-    fn mapset_id(&self) -> u32 {
-        self.mapset.as_ref().map_or(0, |mapset| mapset.mapset_id)
-    }
-
-    fn max_combo(&self) -> u32 {
-        self.max_combo
-    }
-
-    fn mode(&self) -> GameMode {
-        self.mode
-    }
-
-    fn mods(&self) -> GameMods {
-        self.mods
-    }
-
-    fn n_misses(&self) -> u32 {
-        self.statistics.count_miss
-    }
-
-    fn pp(&self) -> Option<f32> {
-        self.pp
-    }
-
-    fn score(&self) -> u32 {
-        self.score
-    }
-
-    fn score_id(&self) -> u64 {
-        self.score_id
-    }
-
-    fn seconds_drain(&self) -> u32 {
-        self.map.as_ref().map_or(0, |map| map.seconds_drain)
-    }
-
-    fn stars(&self) -> f32 {
-        self.map.as_ref().map_or(0.0, |map| map.stars)
-    }
-
-    fn total_hits_sort(&self) -> u32 {
-        self.total_hits()
-    }
-}
-
-macro_rules! impl_sortable_score_tuple {
-    (($($ty:ty),*) => $idx:tt) => {
-        impl SortableScore for ($($ty),*) {
-            fn acc(&self) -> f32 {
-                SortableScore::acc(&self.$idx)
-            }
-
-            fn bpm(&self) -> f32 {
-                SortableScore::bpm(&self.$idx)
-            }
-
-            fn ended_at(&self) -> OffsetDateTime {
-                SortableScore::ended_at(&self.$idx)
-            }
-
-            fn map_id(&self) -> u32 {
-                SortableScore::map_id(&self.$idx)
-            }
-
-            fn mapset_id(&self) -> u32 {
-                SortableScore::mapset_id(&self.$idx)
-            }
-
-            fn max_combo(&self) -> u32 {
-                SortableScore::max_combo(&self.$idx)
-            }
-
-            fn mode(&self) -> GameMode {
-                SortableScore::mode(&self.$idx)
-            }
-
-            fn mods(&self) -> GameMods {
-                SortableScore::mods(&self.$idx)
-            }
-
-            fn n_misses(&self) -> u32 {
-                SortableScore::n_misses(&self.$idx)
-            }
-
-            fn pp(&self) -> Option<f32> {
-                SortableScore::pp(&self.$idx)
-            }
-
-            fn score(&self) -> u32 {
-                SortableScore::score(&self.$idx)
-            }
-
-            fn score_id(&self) -> u64 {
-                SortableScore::score_id(&self.$idx)
-            }
-
-            fn seconds_drain(&self) -> u32 {
-                SortableScore::seconds_drain(&self.$idx)
-            }
-
-            fn stars(&self) -> f32 {
-                SortableScore::stars(&self.1)
-            }
-
-            fn total_hits_sort(&self) -> u32 {
-                SortableScore::total_hits_sort(&self.$idx)
-            }
-        }
-    };
-}
-
-impl_sortable_score_tuple!((usize, Score) => 1);
-impl_sortable_score_tuple!((usize, Score, Option<f32>) => 1);
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum AttributeKind {
-    Ar,
-    Cs,
-    Hp,
-    Od,
 }

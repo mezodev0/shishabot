@@ -7,9 +7,6 @@ extern crate eyre;
 #[macro_use]
 extern crate tracing;
 
-#[macro_use]
-mod error;
-
 mod commands;
 mod core;
 mod custom_client;

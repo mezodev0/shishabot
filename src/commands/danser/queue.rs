@@ -64,7 +64,6 @@ async fn queue(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let embed = EmbedBuilder::new()
         .title("Current queue")
         .description(queue_list)
-        .color(15785176)
         .timestamp(OffsetDateTime::now_utc());
 
     let builder = MessageBuilder::new().embed(embed);

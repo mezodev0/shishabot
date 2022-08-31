@@ -1,6 +1,11 @@
-use std::{fmt::Display, hash::Hash};
+use std::{
+    error::Error,
+    fmt::{Display, Formatter, Result as FmtResult},
+    hash::Hash,
+};
 
 use bytes::Bytes;
+use eyre::{Context as _, Report, Result};
 use http::{Response, StatusCode};
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
@@ -15,12 +20,7 @@ use twilight_model::channel::Attachment;
 
 use crate::util::{constants::OSU_BASE, ExponentialBackoff};
 
-pub use self::error::*;
-
 mod deserialize;
-mod error;
-
-type ClientResult<T> = Result<T, CustomClientError>;
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
 
@@ -50,7 +50,7 @@ pub struct CustomClient {
 }
 
 impl CustomClient {
-    pub async fn new() -> ClientResult<Self> {
+    pub fn new() -> Self {
         let connector = HttpsConnectorBuilder::new()
             .with_webpki_roots()
             .https_or_http()
@@ -81,43 +81,35 @@ impl CustomClient {
             ratelimiter(1),  // Respektive
         ];
 
-        Ok(Self {
+        Self {
             client,
             ratelimiters,
-        })
+        }
     }
 
     async fn ratelimit(&self, site: Site) {
         self.ratelimiters[site as usize].acquire_one().await
     }
 
-    async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Bytes> {
+    async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> Result<Bytes> {
         trace!("GET request of url {}", url.as_ref());
 
         let req = Request::builder()
             .uri(url.as_ref())
             .method(Method::GET)
             .header(USER_AGENT, MY_USER_AGENT)
-            .body(Body::empty())?;
+            .body(Body::empty())
+            .context("failed to build GET request")?;
 
         self.ratelimit(site).await;
-        let response = self.client.request(req).await?;
+
+        let response = self
+            .client
+            .request(req)
+            .await
+            .context("failed to receive GET response")?;
 
         Self::error_for_status(response, url.as_ref()).await
-    }
-
-    #[cfg(debug_assertions)]
-    async fn make_twitch_get_request<I, U, V>(
-        &self,
-        _: impl AsRef<str>,
-        _: I,
-    ) -> ClientResult<Bytes>
-    where
-        I: IntoIterator<Item = (U, V)>,
-        U: Display,
-        V: Display,
-    {
-        Err(CustomClientError::NoTwitchOnDebug)
     }
 
     async fn make_post_request<F: Serialize>(
@@ -125,7 +117,7 @@ impl CustomClient {
         url: impl AsRef<str>,
         site: Site,
         form: &F,
-    ) -> ClientResult<Bytes> {
+    ) -> Result<Bytes> {
         trace!("POST request of url {}", url.as_ref());
 
         let form_body = serde_urlencoded::to_string(form)?;
@@ -135,44 +127,49 @@ impl CustomClient {
             .uri(url.as_ref())
             .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, APPLICATION_URLENCODED)
-            .body(Body::from(form_body))?;
+            .body(Body::from(form_body))
+            .context("failed to build POST request")?;
 
         self.ratelimit(site).await;
-        let response = self.client.request(req).await?;
+
+        let response = self
+            .client
+            .request(req)
+            .await
+            .context("failed to receive POST response")?;
 
         Self::error_for_status(response, url.as_ref()).await
     }
 
-    async fn error_for_status(
-        response: Response<Body>,
-        url: impl Into<String>,
-    ) -> ClientResult<Bytes> {
-        if response.status().is_client_error() || response.status().is_server_error() {
-            Err(CustomClientError::Status {
-                status: response.status(),
-                url: url.into(),
-            })
+    async fn error_for_status(response: Response<Body>, url: impl Into<String>) -> Result<Bytes> {
+        let status = response.status();
+
+        if status.is_client_error() || status.is_server_error() {
+            Err(StatusError::new(status, url.into()).into())
         } else {
-            let bytes = hyper::body::to_bytes(response.into_body()).await?;
+            let bytes = hyper::body::to_bytes(response.into_body())
+                .await
+                .context("failed to extract response bytes")?;
 
             Ok(bytes)
         }
     }
 
-    pub async fn get_discord_attachment(&self, attachment: &Attachment) -> ClientResult<Bytes> {
+    pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
     }
 
-    pub async fn get_map_file(&self, map_id: u32) -> ClientResult<Bytes> {
+    pub async fn get_map_file(&self, map_id: u32) -> Result<Bytes> {
         let url = format!("{OSU_BASE}osu/{map_id}");
         let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
         const ATTEMPTS: usize = 10;
 
         for (duration, i) in backoff.take(ATTEMPTS).zip(1..) {
             let result = self.make_get_request(&url, Site::OsuMapFile).await;
+            let downcast = result.as_ref().map_err(Report::downcast_ref);
 
-            if matches!(&result, Err(CustomClientError::Status { status, ..}) if *status == StatusCode::TOO_MANY_REQUESTS)
+            if matches!(downcast, Err(Some(StatusError { status, .. })) if *status == StatusCode::TOO_MANY_REQUESTS)
                 || matches!(&result, Ok(bytes) if bytes.starts_with(b"<html>"))
             {
                 debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}");
@@ -182,6 +179,36 @@ impl CustomClient {
             }
         }
 
-        Err(CustomClientError::MapFileRetryLimit(map_id))
+        bail!("reached retry limit and still failed to download {map_id}.osu")
+    }
+}
+
+#[derive(Debug)]
+pub struct StatusError {
+    status: StatusCode,
+    url: String,
+}
+
+impl StatusError {
+    fn new(status: StatusCode, url: String) -> Self {
+        Self { status, url }
+    }
+}
+
+impl Display for StatusError {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "failed with status code {} when requesting {}",
+            self.status, self.url
+        )
+    }
+}
+
+impl Error for StatusError {
+    #[inline]
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
     }
 }

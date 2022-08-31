@@ -4,7 +4,7 @@ use twilight_model::{
     util::Timestamp,
 };
 
-use crate::util::constants::DARK_GREEN;
+use crate::util::constants::BEIGE;
 
 use super::footer::IntoEmbedFooter;
 
@@ -15,7 +15,7 @@ impl Default for EmbedBuilder {
     fn default() -> Self {
         Self(Embed {
             author: None,
-            color: Some(DARK_GREEN),
+            color: Some(BEIGE),
             description: None,
             fields: Vec::new(),
             footer: None,

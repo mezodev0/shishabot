@@ -93,8 +93,7 @@ impl Context {
         let osu_client_secret = &config.tokens.osu_client_secret;
         let osu = Osu::new(osu_client_id, osu_client_secret).await?;
 
-        // Log custom client into osu!
-        let custom = CustomClient::new().await?;
+        let custom = CustomClient::new();
 
         let (cache, resume_data) = Cache::new().await;
 

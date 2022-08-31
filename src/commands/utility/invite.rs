@@ -8,7 +8,7 @@ use crate::{
     core::commands::CommandOrigin,
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_WORKSHOP, INVITE_LINK},
+        constants::INVITE_LINK,
         interaction::InteractionCommand,
     },
     Context, DEFAULT_PREFIX,
@@ -42,7 +42,7 @@ async fn invite(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         .title("Invite me to your server!")
         .build();
 
-    let builder = MessageBuilder::new().content(BATHBOT_WORKSHOP).embed(embed);
+    let builder = MessageBuilder::new().embed(embed);
     orig.callback(&ctx, builder).await?;
 
     Ok(())

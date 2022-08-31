@@ -1,5 +1,6 @@
 use std::{collections::HashMap, iter::FromIterator};
 
+use eyre::{ContextCompat, Result};
 use twilight_cache_inmemory::{
     model::{CachedGuild, CachedMember},
     GuildResource, InMemoryCache, InMemoryCacheStats, ResourceType,
@@ -15,12 +16,9 @@ use twilight_model::{
     user::{CurrentUser, User},
 };
 
-pub use self::{error::CacheMiss, permissions::RolesLookup};
+pub use self::permissions::RolesLookup;
 
-mod error;
 mod permissions;
-
-type CacheResult<T> = Result<T, CacheMiss>;
 
 pub struct Cache {
     inner: InMemoryCache,
@@ -52,44 +50,47 @@ impl Cache {
         self.inner.stats()
     }
 
-    pub fn channel<F, T>(&self, channel: Id<ChannelMarker>, f: F) -> CacheResult<T>
+    pub fn channel<F, T>(&self, channel: Id<ChannelMarker>, f: F) -> Result<T>
     where
         F: FnOnce(&Channel) -> T,
     {
         let channel = self
             .inner
             .channel(channel)
-            .ok_or(CacheMiss::Channel { channel })?;
+            .with_context(|| format!("missing channel {channel}"))?;
 
         Ok(f(&channel))
     }
 
-    pub fn current_user<F, O>(&self, f: F) -> CacheResult<O>
+    pub fn current_user<F, O>(&self, f: F) -> Result<O>
     where
         F: FnOnce(&CurrentUser) -> O,
     {
         self.inner
             .current_user_partial(f)
-            .ok_or(CacheMiss::CurrentUser)
+            .context("missing current user")
     }
 
-    pub fn guild<F, T>(&self, guild: Id<GuildMarker>, f: F) -> CacheResult<T>
+    pub fn guild<F, T>(&self, guild: Id<GuildMarker>, f: F) -> Result<T>
     where
         F: FnOnce(&CachedGuild) -> T,
     {
-        let guild = self.inner.guild(guild).ok_or(CacheMiss::Guild { guild })?;
+        let guild = self
+            .inner
+            .guild(guild)
+            .with_context(|| format!("missing guild {guild}"))?;
 
         Ok(f(&guild))
     }
 
-    pub fn member<F, T>(&self, guild: Id<GuildMarker>, user: Id<UserMarker>, f: F) -> CacheResult<T>
+    pub fn member<F, T>(&self, guild: Id<GuildMarker>, user: Id<UserMarker>, f: F) -> Result<T>
     where
         F: FnOnce(&CachedMember) -> T,
     {
         let member = self
             .inner
             .member(guild, user)
-            .ok_or(CacheMiss::Member { guild, user })?;
+            .with_context(|| format!("missing member {user} in guild {guild}"))?;
 
         Ok(f(&member))
     }
@@ -104,29 +105,31 @@ impl Cache {
             .map_or_else(C::default, |entry| entry.iter().map(f).collect())
     }
 
-    pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> CacheResult<T>
+    pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> Result<T>
     where
         F: FnOnce(&GuildResource<Role>) -> T,
     {
-        let role = self.inner.role(role).ok_or(CacheMiss::Role { role })?;
+        let role = self
+            .inner
+            .role(role)
+            .with_context(|| format!("missing role {role}"))?;
 
         Ok(f(&role))
     }
 
-    pub fn user<F, T>(&self, user: Id<UserMarker>, f: F) -> CacheResult<T>
+    pub fn user<F, T>(&self, user: Id<UserMarker>, f: F) -> Result<T>
     where
         F: FnOnce(&User) -> T,
     {
-        let user = self.inner.user(user).ok_or(CacheMiss::User { user })?;
+        let user = self
+            .inner
+            .user(user)
+            .with_context(|| format!("missing user {user}"))?;
 
         Ok(f(&user))
     }
 
-    pub fn is_guild_owner(
-        &self,
-        guild: Id<GuildMarker>,
-        user: Id<UserMarker>,
-    ) -> CacheResult<bool> {
+    pub fn is_guild_owner(&self, guild: Id<GuildMarker>, user: Id<UserMarker>) -> Result<bool> {
         self.guild(guild, |g| g.owner_id() == user)
     }
 

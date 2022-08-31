@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use eyre::{Report, Result};
+use eyre::{ContextCompat, Report, Result};
 use hashbrown::HashSet;
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
@@ -14,14 +14,11 @@ use crate::{
         commands::prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
         Context,
     },
-    error::InvalidHelpState,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
         interaction::InteractionComponent,
         levenshtein_distance, ChannelExt, ComponentExt,
     },
-    DEFAULT_PREFIX,
 };
 
 use super::failed_message_content;
@@ -162,58 +159,7 @@ async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> 
 }
 
 async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
-    let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
-        let mut prefixes = ctx.guild_prefixes(guild_id);
-
-        if !prefixes.is_empty() {
-            let prefix = prefixes.swap_remove(0);
-
-            if prefix == DEFAULT_PREFIX && prefixes.len() == 1 {
-                (None, prefix)
-            } else {
-                let prefix_iter = prefixes.iter();
-                let mut prefixes_str = String::with_capacity(9);
-                let _ = write!(prefixes_str, "`{prefix}`");
-
-                for prefix in prefix_iter {
-                    let _ = write!(prefixes_str, ", `{prefix}`");
-                }
-
-                (Some(prefixes_str), prefix)
-            }
-        } else {
-            (None, "<".into())
-        }
-    } else {
-        (None, "<".into())
-    };
-
-    let prefix_desc = custom_prefix.map_or_else(
-        || String::from("Prefix: `<` (none required in DMs)"),
-        |p| format!("Server prefix: {p}\nDM prefix: `<` or none at all"),
-    );
-
-    format!(
-        ":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
-        {prefix_desc}\n\
-        __**General**__\n\
-        - To find out more about a command like what arguments you can give or which shorter aliases \
-        it has,  use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`.
-        - If you want to specify an argument, e.g. a username, that contains \
-        spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you've used the `/link` command to connect to an osu! account, \
-        you can omit the username for any command that needs one.\n\
-        - If you have questions, complains, or suggestions for the bot, feel free to join its \
-        [discord server]({BATHBOT_WORKSHOP}) and let Badewanne3 know.\n\
-        [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.\n\
-        __**Mods for osu!**__
-        Many commands allow you to specify mods. You can do so with `+mods` \
-        for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
-        `+hdhr`: scores that include at least HD and HR\n\
-        `+hd!`: only HD scores\n\
-        `-nm!`: scores that are not NoMod\n\
-        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ"
-    )
+    format!("Bla bla TODO write this mezo")
 }
 
 async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
@@ -257,11 +203,7 @@ pub async fn handle_help_category(
     ctx: &Context,
     mut component: InteractionComponent,
 ) -> Result<()> {
-    let value = component
-        .data
-        .values
-        .pop()
-        .ok_or(InvalidHelpState::MissingValue)?;
+    let value = component.data.values.pop().context("missing menu value")?;
 
     let group = match value.as_str() {
         "general" => {
@@ -284,7 +226,7 @@ pub async fn handle_help_category(
         "games" => PrefixCommandGroup::Games,
         "danser" => PrefixCommandGroup::Danser,
         "utility" => PrefixCommandGroup::Utility,
-        _ => return Err(InvalidHelpState::UnknownValue(value).into()),
+        _ => bail!("got unexpected value `{value}`"),
     };
 
     let mut cmds: Vec<_> = {

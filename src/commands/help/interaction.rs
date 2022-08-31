@@ -2,7 +2,6 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::SlashCommand;
 use eyre::Result;
-use time::OffsetDateTime;
 use twilight_interactions::command::{
     ApplicationCommandData, AutocompleteValue, CommandModel, CreateCommand,
 };
@@ -15,8 +14,7 @@ use crate::{
     },
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
-        datetime::how_long_ago_dynamic,
+        constants::{INVITE_LINK, SHISHABOT_GITHUB},
         interaction::InteractionCommand,
         levenshtein_distance,
         numbers::with_comma_int,
@@ -94,17 +92,9 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
     let mention = format!("<@{id}>");
 
     let description = format!(
-        "{mention} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!"
+        "{mention} is a discord bot written by [mezo](https://osu.ppy.sh/u/13313647) \
+        to render and upload replays"
     );
-
-    let join_server = EmbedField {
-        inline: false,
-        name: "Got a question, suggestion, bug, or are interested in the development?".to_owned(),
-        value: format!(
-            "Feel free to join the [discord server]({BATHBOT_WORKSHOP}).\n\
-            [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.",
-        ),
-    };
 
     let command_help = EmbedField {
         inline: false,
@@ -125,49 +115,13 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: with_comma_int(ctx.cache.stats().guilds()).to_string(),
     };
 
-    let boot_time = OffsetDateTime::now_utc();
-
-    let boot_up = EmbedField {
-        inline: true,
-        name: "Boot-up".to_owned(),
-        value: how_long_ago_dynamic(&boot_time).to_string(),
-    };
-
     let github = EmbedField {
         inline: false,
         name: "Interested in the code?".to_owned(),
-        value: format!("The source code can be found over at [github]({BATHBOT_GITHUB})"),
+        value: format!("The source code can be found over at [github]({SHISHABOT_GITHUB})"),
     };
 
-    let commands_used = EmbedField {
-        inline: true,
-        name: "Commands used".to_owned(),
-        value: with_comma_int(0).to_string(),
-    };
-
-    let osu_requests = EmbedField {
-        inline: true,
-        name: "osu!api requests".to_owned(),
-        value: with_comma_int(0).to_string(),
-    };
-
-    let kofi = EmbedField {
-        inline: false,
-        name: "Feel like supporting the bot's development & maintenance?".to_owned(),
-        value: format!("Donations through [Ko-fi]({KOFI}) are very much appreciated <3"),
-    };
-
-    let fields = vec![
-        join_server,
-        command_help,
-        invite,
-        servers,
-        boot_up,
-        github,
-        commands_used,
-        osu_requests,
-        kofi,
-    ];
+    let fields = vec![command_help, invite, servers, github];
 
     let builder = EmbedBuilder::new()
         .description(description)
