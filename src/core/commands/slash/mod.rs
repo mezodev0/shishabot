@@ -43,6 +43,7 @@ impl SlashCommands {
                 Ping => PING_SLASH,
                 Prune => PRUNE_SLASH,
                 Queue => QUEUE_SLASH,
+                Render => RENDER_SLASH,
                 Roll => ROLL_SLASH,
             }
         })

@@ -3,7 +3,7 @@ pub use self::{
     config::BotConfig,
     context::Context,
     events::event_loop,
-    replay_queue::{ReplayQueue, ReplayStatus},
+    replay_queue::{ReplayData, ReplayQueue, ReplayStatus, TimePoints},
 };
 
 mod cache;

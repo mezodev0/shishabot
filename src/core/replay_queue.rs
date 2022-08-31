@@ -20,14 +20,14 @@ pub struct ReplayData {
     pub output_channel: Id<ChannelMarker>,
     pub path: PathBuf,
     pub replay: Replay,
-    pub time_points: Option<TimePoints>,
+    pub time_points: TimePoints,
     pub user: Id<UserMarker>,
 }
 
 #[derive(Copy, Clone)]
 pub struct TimePoints {
-    pub start: Option<u32>,
-    pub end: Option<u32>,
+    pub start: Option<u16>,
+    pub end: Option<u16>,
 }
 
 impl TimePoints {
