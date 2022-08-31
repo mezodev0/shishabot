@@ -12,7 +12,6 @@ pub mod interaction;
 pub mod matcher;
 pub mod numbers;
 pub mod osu;
-pub mod query;
 
 mod cow;
 mod ext;

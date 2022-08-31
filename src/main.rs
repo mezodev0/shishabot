@@ -11,9 +11,7 @@ extern crate tracing;
 mod commands;
 mod core;
 mod custom_client;
-mod embeds;
 mod pagination;
-mod pp;
 mod util;
 
 use std::sync::Arc;

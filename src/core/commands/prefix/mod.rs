@@ -63,14 +63,11 @@ impl PrefixCommands {
     pub fn get() -> &'static Self {
         PREFIX_COMMANDS.get_or_init(|| {
             prefix_trie! {
-                COMMANDS_PREFIX,
                 INVITE_PREFIX,
                 HELP_PREFIX,
                 PING_PREFIX,
                 PREFIX_PREFIX,
-                PRUNE_PREFIX,
                 QUEUE_PREFIX,
-                ROLL_PREFIX,
             }
         })
     }

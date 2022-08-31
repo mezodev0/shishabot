@@ -36,15 +36,12 @@ impl SlashCommands {
     pub fn get() -> &'static Self {
         SLASH_COMMANDS.get_or_init(|| {
             slash_trie! {
-                Commands => COMMANDS_SLASH,
                 Help => HELP_SLASH,
                 Invite => INVITE_SLASH,
                 Owner => OWNER_SLASH,
                 Ping => PING_SLASH,
-                Prune => PRUNE_SLASH,
                 Queue => QUEUE_SLASH,
                 Render => RENDER_SLASH,
-                Roll => ROLL_SLASH,
             }
         })
     }
