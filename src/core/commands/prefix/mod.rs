@@ -68,6 +68,7 @@ impl PrefixCommands {
                 PING_PREFIX,
                 PREFIX_PREFIX,
                 QUEUE_PREFIX,
+                SKINLIST_PREFIX,
             }
         })
     }

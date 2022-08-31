@@ -1,5 +1,7 @@
 use std::{mem, sync::Arc};
 
+use eyre::Context as _;
+
 use crate::{
     commands::help::{handle_help_category, handle_help_component},
     core::{events::log_command, Context},
@@ -25,7 +27,7 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
         _ => return error!("unknown message component `{name}`"),
     };
 
-    if let Err(err) = res {
-        error!("failed to process component `{name}`: {err:?}");
+    if let Err(err) = res.with_context(|| format!("failed to process component `{name}`")) {
+        error!("{err:?}");
     }
 }

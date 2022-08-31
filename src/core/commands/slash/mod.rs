@@ -42,6 +42,7 @@ impl SlashCommands {
                 Ping => PING_SLASH,
                 Queue => QUEUE_SLASH,
                 Render => RENDER_SLASH,
+                SkinList => SKINLIST_SLASH,
             }
         })
     }

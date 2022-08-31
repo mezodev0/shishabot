@@ -1,6 +1,6 @@
 use std::{mem, sync::Arc};
 
-use eyre::Result;
+use eyre::{Context as _, Result};
 
 use crate::{
     core::{
@@ -23,12 +23,14 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
         None => return error!("unknown slash command `{name}`"),
     };
 
-    match process_command(ctx, command, slash).await {
+    let res = process_command(ctx, command, slash)
+        .await
+        .with_context(|| format!("failed to process slash command `{name}`"));
+
+    match res {
         Ok(ProcessResult::Success) => info!("Processed slash command `{name}`"),
         Ok(res) => info!("Command `/{name}` was not processed: {res:?}"),
-        Err(err) => {
-            error!("failed to process slash command `{name}`: {err:?}")
-        }
+        Err(err) => error!("{err:?}"),
     }
 }
 

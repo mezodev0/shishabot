@@ -14,6 +14,7 @@ use twilight_model::id::{
     Id,
 };
 
+// TODO: use SlimReplay for smaller size and cheaper cloning
 #[derive(Clone)]
 pub struct ReplayData {
     pub input_channel: Id<ChannelMarker>,

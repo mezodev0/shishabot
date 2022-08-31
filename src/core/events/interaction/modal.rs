@@ -1,5 +1,7 @@
 use std::{mem, sync::Arc};
 
+use eyre::Context as _;
+
 use crate::{
     core::{events::log_command, Context},
     pagination::components::handle_pagination_modal,
@@ -15,7 +17,7 @@ pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
         _ => return error!("unknown modal `{name}`: {modal:#?}"),
     };
 
-    if let Err(err) = res {
-        error!("failed to process modal `{name}`: {err:?}");
+    if let Err(err) = res.with_context(|| format!("failed to process modal `{name}`")) {
+        error!("{err:?}");
     }
 }

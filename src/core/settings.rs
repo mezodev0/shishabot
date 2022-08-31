@@ -7,7 +7,7 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::util::hasher::SimpleBuildHasher;
+use crate::{util::hasher::SimpleBuildHasher, DEFAULT_PREFIX};
 
 pub type Prefix = SmallString<[u8; 2]>;
 pub type Prefixes = SmallVec<[Prefix; 2]>;
@@ -32,7 +32,7 @@ impl Server {
         Self {
             input_channel,
             output_channel,
-            prefixes: Prefixes::default(),
+            prefixes: smallvec::smallvec![DEFAULT_PREFIX.into()],
         }
     }
 }

@@ -19,20 +19,20 @@ use crate::{
     util::{builder::MessageBuilder, numbers::last_multiple, MessageExt},
 };
 
-pub use self::command_count::*;
+pub use self::skin_list::*;
 
-mod command_count;
+mod skin_list;
 
 pub mod components;
 
 pub enum PaginationKind {
-    CommandCount(Box<CommandCountPagination>),
+    SkinList(Box<SkinListPagination>),
 }
 
 impl PaginationKind {
     async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         match self {
-            Self::CommandCount(kind) => Ok(kind.build_page(pages)),
+            Self::SkinList(kind) => Ok(kind.build_page(pages)),
         }
     }
 }
@@ -136,11 +136,7 @@ impl Pagination {
         tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    res = rx.changed() => if res.is_ok() {
-                        continue
-                    } else {
-                        return
-                    },
+                    res = rx.changed() => if res.is_ok() { continue } else { return },
                     _ = sleep(MINUTE) => {
                         let pagination_active = ctx.paginations.lock(&msg).await.remove().is_some();
 

@@ -1,5 +1,7 @@
 use std::{mem, sync::Arc};
 
+use eyre::Context as _;
+
 use crate::{
     commands::help::slash_help,
     core::{events::log_command, Context},
@@ -15,7 +17,7 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
         _ => return error!("unknown autocomplete command `{name}`"),
     };
 
-    if let Err(err) = res {
-        error!("failed to process autocomplete `{name}`: {err:?}");
+    if let Err(err) = res.with_context(|| format!("failed to process autocomplete `{name}`")) {
+        error!("{err:?}");
     }
 }
