@@ -110,7 +110,7 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
         input_channel: orig.channel_id(),
         output_channel,
         path: replay_file,
-        replay,
+        replay: replay.into(),
         time_points: TimePoints { start, end },
         user: orig.user_id()?,
     };

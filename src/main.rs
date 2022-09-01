@@ -19,7 +19,9 @@ use std::sync::Arc;
 use eyre::{Context as _, Result};
 use tokio::{runtime::Builder as RuntimeBuilder, signal};
 
-use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context};
+use crate::core::{
+    commands::slash::SlashCommands, event_loop, logging, BotConfig, Context, ReplayQueue,
+};
 
 pub const DEFAULT_PREFIX: &str = "$";
 
@@ -78,6 +80,9 @@ async fn async_main() -> Result<()> {
 
     let event_ctx = Arc::clone(&ctx);
     ctx.cluster.up().await;
+
+    // Process the replay queue in the background
+    ReplayQueue::process(Arc::clone(&ctx));
 
     tokio::select! {
         _ = event_loop(event_ctx, events) => error!("Event loop ended"),

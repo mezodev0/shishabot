@@ -14,49 +14,16 @@ use twilight_model::id::{
     Id,
 };
 
-// TODO: use SlimReplay for smaller size and cheaper cloning
-#[derive(Clone)]
-pub struct ReplayData {
-    pub input_channel: Id<ChannelMarker>,
-    pub output_channel: Id<ChannelMarker>,
-    pub path: PathBuf,
-    pub replay: Replay,
-    pub time_points: TimePoints,
-    pub user: Id<UserMarker>,
-}
+pub use self::data::*;
 
-#[derive(Copy, Clone)]
-pub struct TimePoints {
-    pub start: Option<u16>,
-    pub end: Option<u16>,
-}
-
-impl TimePoints {
-    pub fn parse_single(s: &str) -> Result<u32, &'static str> {
-        let mut iter = s.split(':').map(str::parse);
-
-        match (iter.next(), iter.next()) {
-            (Some(Ok(minutes)), Some(Ok(seconds @ 0..=59))) => Ok(minutes * 60 + seconds),
-            (Some(Ok(_)), Some(Ok(_))) => Err("Seconds must be between 0 and 60!"),
-            (Some(Ok(seconds)), None) => Ok(seconds),
-            _ => Err("A value you supplied is not a number!"),
-        }
-    }
-}
+mod data;
+mod process;
 
 pub struct ReplayQueue {
     pub queue: Mutex<VecDeque<ReplayData>>,
     pub status: Mutex<ReplayStatus>,
     tx: UnboundedSender<()>,
     rx: Mutex<UnboundedReceiver<()>>,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum ReplayStatus {
-    Waiting,
-    Downloading,
-    Processing,
-    Uploading,
 }
 
 impl ReplayQueue {
@@ -101,12 +68,5 @@ impl Default for ReplayQueue {
             rx: Mutex::new(rx),
             status: Mutex::new(ReplayStatus::Waiting),
         }
-    }
-}
-
-impl Display for ReplayStatus {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        <Self as Debug>::fmt(self, f)
     }
 }

@@ -1,0 +1,33 @@
+2022-09-01 11:50:29  INFO [src/core/context/mod.rs:86] Connecting to Discord as danser thing beta#797...
+2022-09-01 11:50:29  INFO [src/main.rs:51] Setting 7 slash commands...
+2022-09-01 11:50:29  INFO [/home/max/.cargo/git/checkouts/twilight-8d42c4deee49c698/5d18f7b/twilight-gateway-queue/src/lib.rs:141] shard 0/1 waiting for allowance
+2022-09-01 11:50:30  INFO [src/core/events/mod.rs:121] Shard 0 is connecting...
+2022-09-01 11:50:30  INFO [src/core/events/mod.rs:123] Shard 0 is identifying...
+2022-09-01 11:50:30  INFO [src/core/events/mod.rs:120] Shard 0 is connected
+2022-09-01 11:50:30  INFO [src/core/events/mod.rs:118] Shard 0 is ready
+2022-09-01 11:51:00  INFO [src/core/events/mod.rs:40] [shishabot labs:testing] Badewanne3 invoked `render`
+2022-09-01 11:51:00 TRACE [src/custom_client/mod.rs:81] GET request of url https://cdn.discordapp.com/ephemeral-attachments/1014605896518750285/1014864941766950962/Badewanne3_-_Apache_207_-_Roller_jamesjans_Brrm_2022-08-17_Osu.osr
+2022-09-01 11:51:01  INFO [src/core/events/interaction/command.rs:31] Processed slash command `render`
+2022-09-01 11:52:10  INFO [src/main.rs:87] Received Ctrl+C
+2022-09-01 11:52:10  INFO [src/main.rs:93] Shutting down
+2022-09-01 11:52:28  INFO [src/core/context/mod.rs:86] Connecting to Discord as danser thing beta#797...
+2022-09-01 11:52:29  INFO [src/main.rs:53] Setting 7 slash commands...
+2022-09-01 11:52:29  INFO [/home/max/.cargo/git/checkouts/twilight-8d42c4deee49c698/5d18f7b/twilight-gateway-queue/src/lib.rs:141] shard 0/1 waiting for allowance
+2022-09-01 11:52:29  INFO [src/core/events/mod.rs:121] Shard 0 is connecting...
+2022-09-01 11:52:29  INFO [src/core/events/mod.rs:123] Shard 0 is identifying...
+2022-09-01 11:52:30  INFO [src/core/events/mod.rs:120] Shard 0 is connected
+2022-09-01 11:52:30  INFO [src/core/events/mod.rs:118] Shard 0 is ready
+2022-09-01 11:52:50  INFO [src/core/events/mod.rs:40] [shishabot labs:testing] Badewanne3 invoked `render`
+2022-09-01 11:52:50 TRACE [src/custom_client/mod.rs:81] GET request of url https://cdn.discordapp.com/ephemeral-attachments/1014605896518750285/1014865403526258698/Badewanne3_-_Apache_207_-_Roller_jamesjans_Brrm_2022-08-17_Osu.osr
+2022-09-01 11:52:51  INFO [src/core/events/interaction/command.rs:31] Processed slash command `render`
+2022-09-01 11:52:51  INFO [src/core/replay_queue/process.rs:83] Started map download
+2022-09-01 11:52:51 TRACE [src/custom_client/mod.rs:81] GET request of url https://kitsu.moe/d/1590679
+2022-09-01 11:52:51  WARN [src/core/replay_queue/process.rs:87] failed to create zip archive
+
+Caused by:
+    invalid Zip archive
+
+Location:
+    src/core/replay_queue/process.rs:307:47
+2022-09-01 11:59:02  INFO [src/main.rs:92] Received Ctrl+C
+2022-09-01 11:59:02  INFO [src/main.rs:98] Shutting down

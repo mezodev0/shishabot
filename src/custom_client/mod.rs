@@ -31,13 +31,15 @@ const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
 #[repr(u8)]
 enum Site {
     DiscordAttachment,
+    DownloadChimu,
+    DownloadKitsu,
 }
 
 type Client = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 
 pub struct CustomClient {
     client: Client,
-    ratelimiters: [LeakyBucket; 1],
+    ratelimiters: [LeakyBucket; 3],
 }
 
 impl CustomClient {
@@ -61,6 +63,8 @@ impl CustomClient {
 
         let ratelimiters = [
             ratelimiter(2), // DiscordAttachment
+            ratelimiter(1), // DownloadChimu
+            ratelimiter(1), // DownloadKitsu
         ];
 
         Self {
@@ -140,5 +144,17 @@ impl CustomClient {
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
+    }
+
+    pub async fn download_chimu_mapset(&self, mapset_id: u32) -> Result<Bytes> {
+        let url = format!("https://chimu.moe/d/{mapset_id}");
+
+        self.make_get_request(url, Site::DownloadChimu).await
+    }
+
+    pub async fn download_kitsu_mapset(&self, mapset_id: u32) -> Result<Bytes> {
+        let url = format!("https://kitsu.moe/api/d/{mapset_id}");
+
+        self.make_get_request(url, Site::DownloadKitsu).await
     }
 }
