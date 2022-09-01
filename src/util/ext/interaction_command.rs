@@ -51,6 +51,7 @@ pub trait InteractionCommandExt {
         &self,
         ctx: &Context,
         content: impl Into<String>,
+        ephemeral: bool,
     ) -> ResponseFuture<EmptyBody>;
 
     /// Callback to an autocomplete action.
@@ -163,11 +164,13 @@ impl InteractionCommandExt for InteractionCommand {
         &self,
         ctx: &Context,
         content: impl Into<String>,
+        ephemeral: bool,
     ) -> ResponseFuture<EmptyBody> {
         let embed = EmbedBuilder::new().description(content).color(RED).build();
 
         let data = InteractionResponseData {
             embeds: Some(vec![embed]),
+            flags: ephemeral.then(|| MessageFlags::EPHEMERAL),
             ..Default::default()
         };
 
