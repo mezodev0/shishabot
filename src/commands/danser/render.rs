@@ -49,7 +49,14 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
 
     let output_channel = match orig.guild_id() {
         Some(guild) => match ctx.guild_settings(guild, |server| server.output_channel) {
-            Some(output_channel) => output_channel,
+            Some(Some(output_channel)) => output_channel,
+            Some(None) => {
+                let content = "Looks like this server has not setup their output channel yet.\n\
+                Be sure to use `/setup` first.";
+                orig.error(&ctx, content).await?;
+
+                return Ok(());
+            }
             None => {
                 let content = "Looks like this server has not setup their output channel yet.\n\
                     Be sure to use `/setup` first.";

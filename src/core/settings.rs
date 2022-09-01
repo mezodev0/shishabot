@@ -1,4 +1,4 @@
-use flurry::HashMap as FlurryMap;
+use flurry::{HashMap as FlurryMap, HashSet};
 use serde::{Deserialize, Serialize};
 use smallstr::SmallString;
 use smallvec::SmallVec;
@@ -20,17 +20,20 @@ pub struct RootSettings {
     pub servers: Servers,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Server {
-    pub input_channel: Id<ChannelMarker>,
-    pub output_channel: Id<ChannelMarker>,
+    pub input_channels: std::collections::HashSet<Id<ChannelMarker>>,
+    pub output_channel: Option<Id<ChannelMarker>>,
     pub prefixes: Prefixes,
 }
 
 impl Server {
-    pub fn new(input_channel: Id<ChannelMarker>, output_channel: Id<ChannelMarker>) -> Self {
+    pub fn new(
+        input_channels: std::collections::HashSet<Id<ChannelMarker>>,
+        output_channel: Option<Id<ChannelMarker>>,
+    ) -> Self {
         Self {
-            input_channel,
+            input_channels,
             output_channel,
             prefixes: smallvec::smallvec![DEFAULT_PREFIX.into()],
         }
@@ -40,6 +43,7 @@ impl Server {
 mod servers {
     use std::fmt::{Formatter, Result as FmtResult};
 
+    use flurry::HashSet;
     use serde::{
         de::{SeqAccess, Visitor},
         ser::{SerializeSeq, SerializeStruct},
@@ -57,8 +61,8 @@ mod servers {
     #[derive(Deserialize)]
     struct RawServer {
         server_id: Id<GuildMarker>,
-        input_channel: Id<ChannelMarker>,
-        output_channel: Id<ChannelMarker>,
+        input_channels: std::collections::HashSet<Id<ChannelMarker>>,
+        output_channel: Option<Id<ChannelMarker>>,
         #[serde(default)]
         prefixes: Prefixes,
     }
@@ -84,13 +88,13 @@ mod servers {
                 while let Some(raw) = seq.next_element()? {
                     let RawServer {
                         server_id,
-                        input_channel,
+                        input_channels,
                         output_channel,
                         prefixes,
                     } = raw;
 
                     let server = Server {
-                        input_channel,
+                        input_channels,
                         output_channel,
                         prefixes,
                     };
@@ -118,7 +122,7 @@ mod servers {
                 s.serialize_struct("RawServer", 4 - self.server.prefixes.is_empty() as usize)?;
 
             raw.serialize_field("server_id", &self.server_id)?;
-            raw.serialize_field("input_channel", &self.server.input_channel)?;
+            raw.serialize_field("input_channels", &self.server.input_channels)?;
             raw.serialize_field("output_channel", &self.server.output_channel)?;
 
             if !self.server.prefixes.is_empty() {

@@ -1,3 +1,5 @@
+use std::ptr::null;
+
 use eyre::{Context as _, Result};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use twilight_model::id::{
@@ -56,13 +58,8 @@ impl Context {
             .unwrap_or_else(|| DEFAULT_PREFIX.into())
     }
 
-    pub async fn insert_guild_settings(
-        &self,
-        guild_id: Id<GuildMarker>,
-        input_channel: Id<ChannelMarker>,
-        output_channel: Id<ChannelMarker>,
-    ) -> Result<()> {
-        let server = Server::new(input_channel, output_channel);
+    pub async fn insert_guild_settings(&self, guild_id: Id<GuildMarker>) -> Result<()> {
+        let mut server = Server::default();
 
         let new_entry = self
             .root_settings
@@ -98,6 +95,17 @@ impl Context {
             self.store_guild_settings().await?;
         }
 
+        Ok(())
+    }
+
+    pub async fn upsert_guild_setings<F>(&self, guild_id: Id<GuildMarker>, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Server),
+    {
+        if !self.root_settings.servers.pin().contains_key(&guild_id) {
+            self.insert_guild_settings(guild_id).await;
+        }
+        self.update_guild_settings(guild_id, f).await;
         Ok(())
     }
 
