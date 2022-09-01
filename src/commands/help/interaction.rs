@@ -56,7 +56,7 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
                     .collect();
 
                 let content = failed_message_content(dists);
-                command.error_callback(&ctx, content).await?;
+                command.error_callback(&ctx, content, false).await?;
 
                 Ok(())
             }

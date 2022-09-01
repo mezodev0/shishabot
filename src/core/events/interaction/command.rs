@@ -63,7 +63,7 @@ async fn pre_process_command(
     // Only in guilds?
     if slash.flags.only_guilds() && guild_id.is_none() {
         let content = "That command is only available in servers";
-        command.error_callback(ctx, content).await?;
+        command.error_callback(ctx, content, false).await?;
 
         return Ok(Some(ProcessResult::NoDM));
     }
@@ -73,7 +73,7 @@ async fn pre_process_command(
     // Only for owners?
     if slash.flags.only_owner() && !BotConfig::get().owners.contains(&user_id) {
         let content = "That command can only be used by the bot owner";
-        command.error_callback(ctx, content).await?;
+        command.error_callback(ctx, content, false).await?;
 
         return Ok(Some(ProcessResult::NoOwner));
     }
@@ -84,7 +84,7 @@ async fn pre_process_command(
             trace!("Ratelimiting user {user_id} on bucket `{bucket:?}` for {cooldown} seconds");
 
             let content = format!("Command on cooldown, try again in {cooldown} seconds");
-            command.error_callback(ctx, content).await?;
+            command.error_callback(ctx, content, false).await?;
 
             return Ok(Some(ProcessResult::Ratelimited(bucket)));
         }
@@ -95,7 +95,7 @@ async fn pre_process_command(
         match check_authority(ctx, user_id, command.channel_id, command.guild_id).await {
             None => {}
             Some(content) => {
-                command.error_callback(ctx, content).await?;
+                command.error_callback(ctx, content, false).await?;
 
                 return Ok(Some(ProcessResult::NoAuthority));
             }

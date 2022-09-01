@@ -145,9 +145,10 @@ impl CommandOrigin<'_> {
     pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
             CommandOrigin::Message { msg } => Ok(msg.error(ctx, content).await.map(|_| ())?),
-            CommandOrigin::Interaction { command } => {
-                Ok(command.error_callback(ctx, content).await.map(|_| ())?)
-            }
+            CommandOrigin::Interaction { command } => Ok(command
+                .error_callback(ctx, content, false)
+                .await
+                .map(|_| ())?),
         }
     }
 }

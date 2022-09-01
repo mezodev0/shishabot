@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandOption, CreateOption};
+use twilight_model::guild::Permissions;
 
 pub mod danser;
 pub mod help;
@@ -122,4 +123,8 @@ impl FromStr for GradeOption {
 
         Ok(grade)
     }
+}
+
+pub fn server_administrator() -> Permissions {
+    Permissions::ADMINISTRATOR
 }
