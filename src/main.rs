@@ -16,7 +16,7 @@ mod util;
 
 use std::sync::Arc;
 
-use eyre::{Result, WrapErr};
+use eyre::{Context as _, Result};
 use tokio::{runtime::Builder as RuntimeBuilder, signal};
 
 use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context};
@@ -81,8 +81,8 @@ async fn async_main() -> Result<()> {
 
     tokio::select! {
         _ = event_loop(event_ctx, events) => error!("Event loop ended"),
-        res = signal::ctrl_c() => if let Err(report) = res.wrap_err("error while awaiting ctrl+c") {
-            error!("{report:?}");
+        res = signal::ctrl_c() => if let Err(err) = res.context("error while awaiting ctrl+c") {
+            error!("{err:?}");
         } else {
             info!("Received Ctrl+C");
         },

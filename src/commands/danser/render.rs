@@ -88,8 +88,8 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
     }
 
     let config = BotConfig::get();
-    let mut replay_file = config.paths.folders.clone();
-    replay_file.push(format!("Downloads/{}", attachment.filename));
+    let mut replay_file = config.paths.downloads();
+    replay_file.push(attachment.filename);
 
     let mut file = match File::create(&replay_file).await {
         Ok(file) => file,

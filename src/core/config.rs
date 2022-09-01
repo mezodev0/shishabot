@@ -19,9 +19,49 @@ pub struct BotConfig {
 
 #[derive(Debug)]
 pub struct Paths {
-    pub folders: PathBuf,
-    pub maps: PathBuf,
-    pub server_settings: PathBuf,
+    danser: PathBuf,
+    folders: PathBuf,
+}
+
+impl Paths {
+    pub fn server_settings(&self) -> PathBuf {
+        let mut path = self.folders.clone();
+        path.push("server_settings.json");
+
+        path
+    }
+
+    pub fn danser(&self) -> &PathBuf {
+        &self.danser
+    }
+
+    pub fn downloads(&self) -> PathBuf {
+        let mut path = self.folders.clone();
+        path.push("Downloads");
+
+        path
+    }
+
+    pub fn skins(&self) -> PathBuf {
+        let mut path = self.folders.clone();
+        path.push("Skins");
+
+        path
+    }
+
+    pub fn songs(&self) -> PathBuf {
+        let mut path = self.folders.clone();
+        path.push("Songs");
+
+        path
+    }
+
+    pub fn replays(&self) -> PathBuf {
+        let mut path = self.folders.clone();
+        path.push("Replays");
+
+        path
+    }
 }
 
 #[derive(Debug)]
@@ -46,9 +86,8 @@ impl BotConfig {
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
             },
             paths: Paths {
+                danser: env_var("DANSER_PATH")?,
                 folders: env_var("FOLDERS_PATH")?,
-                maps: env_var("MAP_PATH")?,
-                server_settings: env_var("SERVER_SETTINGS_PATH")?,
             },
             owners: env_var("OWNERS_USER_ID")?,
             dev_guild: env_var("DEV_GUILD_ID")?,

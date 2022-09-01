@@ -31,22 +31,13 @@ const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
 #[repr(u8)]
 enum Site {
     DiscordAttachment,
-    Huismetbenen,
-    Osekai,
-    OsuAvatar,
-    OsuBadge,
-    OsuMapFile,
-    OsuMapsetCover,
-    OsuStats,
-    OsuTracker,
-    Respektive,
 }
 
 type Client = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 
 pub struct CustomClient {
     client: Client,
-    ratelimiters: [LeakyBucket; 10],
+    ratelimiters: [LeakyBucket; 1],
 }
 
 impl CustomClient {
@@ -69,16 +60,7 @@ impl CustomClient {
         };
 
         let ratelimiters = [
-            ratelimiter(2),  // DiscordAttachment
-            ratelimiter(2),  // Huismetbenen
-            ratelimiter(2),  // Osekai
-            ratelimiter(10), // OsuAvatar
-            ratelimiter(10), // OsuBadge
-            ratelimiter(5),  // OsuMapFile
-            ratelimiter(10), // OsuMapsetCover
-            ratelimiter(2),  // OsuStats
-            ratelimiter(2),  // OsuTracker
-            ratelimiter(1),  // Respektive
+            ratelimiter(2), // DiscordAttachment
         ];
 
         Self {
@@ -141,11 +123,11 @@ impl CustomClient {
         Self::error_for_status(response, url.as_ref()).await
     }
 
-    async fn error_for_status(response: Response<Body>, url: impl Into<String>) -> Result<Bytes> {
+    async fn error_for_status(response: Response<Body>, url: &str) -> Result<Bytes> {
         let status = response.status();
 
         if status.is_client_error() || status.is_server_error() {
-            Err(StatusError::new(status, url.into()).into())
+            bail!("failed with status code {status} when requesting {url}")
         } else {
             let bytes = hyper::body::to_bytes(response.into_body())
                 .await
@@ -158,57 +140,5 @@ impl CustomClient {
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
-    }
-
-    pub async fn get_map_file(&self, map_id: u32) -> Result<Bytes> {
-        let url = format!("{OSU_BASE}osu/{map_id}");
-        let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
-        const ATTEMPTS: usize = 10;
-
-        for (duration, i) in backoff.take(ATTEMPTS).zip(1..) {
-            let result = self.make_get_request(&url, Site::OsuMapFile).await;
-            let downcast = result.as_ref().map_err(Report::downcast_ref);
-
-            if matches!(downcast, Err(Some(StatusError { status, .. })) if *status == StatusCode::TOO_MANY_REQUESTS)
-                || matches!(&result, Ok(bytes) if bytes.starts_with(b"<html>"))
-            {
-                debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}");
-                sleep(duration).await;
-            } else {
-                return result;
-            }
-        }
-
-        bail!("reached retry limit and still failed to download {map_id}.osu")
-    }
-}
-
-#[derive(Debug)]
-pub struct StatusError {
-    status: StatusCode,
-    url: String,
-}
-
-impl StatusError {
-    fn new(status: StatusCode, url: String) -> Self {
-        Self { status, url }
-    }
-}
-
-impl Display for StatusError {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(
-            f,
-            "failed with status code {} when requesting {}",
-            self.status, self.url
-        )
-    }
-}
-
-impl Error for StatusError {
-    #[inline]
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
     }
 }

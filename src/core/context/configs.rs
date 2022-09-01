@@ -105,7 +105,7 @@ impl Context {
         let bytes =
             serde_json::to_vec(&self.root_settings).context("failed to serialize root settings")?;
 
-        let path = &BotConfig::get().paths.server_settings;
+        let path = BotConfig::get().paths.server_settings();
 
         let mut file = OpenOptions::new()
             .write(true)

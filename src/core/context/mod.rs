@@ -31,7 +31,7 @@ pub struct Context {
     pub http: Arc<Client>,
     pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, SimpleBuildHasher>>,
     pub standby: Standby,
-    pub replay_queue: Arc<ReplayQueue>,
+    pub replay_queue: ReplayQueue,
     root_settings: RootSettings,
     application_id: Id<ApplicationMarker>,
     clients: Clients,
@@ -58,7 +58,7 @@ impl Context {
 
         let discord_token = &config.tokens.discord;
 
-        let bytes = fs::read(&config.paths.server_settings)
+        let bytes = fs::read(config.paths.server_settings())
             .await
             .context("failed to read server settings file")?;
 
@@ -113,7 +113,7 @@ impl Context {
             paginations: Arc::new(paginations),
             standby: Standby::new(),
             buckets: Buckets::new(),
-            replay_queue: Arc::new(ReplayQueue::new()),
+            replay_queue: ReplayQueue::new(),
         };
 
         Ok((ctx, events))
@@ -132,30 +132,35 @@ impl Clients {
 }
 
 async fn create_missing_folders_and_files(config: &BotConfig) -> Result<()> {
-    macro_rules! create_folders {
-        ($($folder:literal),*) => {
-            $(
-                let mut path = config.paths.folders.clone();
-                path.push($folder);
+    fs::create_dir_all(config.paths.downloads())
+        .await
+        .context("failed to create Downloads folder")?;
 
-                fs::create_dir_all(&path)
-                    .await
-                    .with_context(|| format!("failed to create `{path:?}`"))?;
-            )*
-        }
-    }
+    fs::create_dir_all(config.paths.replays())
+        .await
+        .context("failed to create Replays folder")?;
 
-    create_folders!("Songs", "Skins", "Replays", "Downloads", "danser");
+    fs::create_dir_all(config.paths.skins())
+        .await
+        .context("failed to create Skins folder")?;
 
-    let mut danser_path = config.paths.folders.clone();
-    danser_path.push("danser");
+    fs::create_dir_all(config.paths.songs())
+        .await
+        .context("failed to create Songs folder")?;
+
+    let danser_entry = config
+        .paths
+        .danser()
+        .read_dir()
+        .ok()
+        .and_then(|mut dir| dir.next());
 
     ensure!(
-        danser_path.read_dir()?.next().is_some(),
+        danser_entry.is_some(),
         "danser not found! please download from https://github.com/Wieku/danser-go/releases/"
     );
 
-    let server_settings = &config.paths.server_settings;
+    let server_settings = config.paths.server_settings();
 
     if !server_settings.exists() {
         let mut file = fs::File::create(server_settings)

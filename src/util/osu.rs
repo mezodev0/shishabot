@@ -130,31 +130,6 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
     100 * passed / total
 }
 
-pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf> {
-    let mut map_path = BotConfig::get().paths.maps.clone();
-    map_path.push(format!("{map_id}.osu"));
-
-    if !map_path.exists() {
-        let bytes = ctx
-            .client()
-            .get_map_file(map_id)
-            .await
-            .context("failed to download .osu file")?;
-
-        let mut file = File::create(&map_path)
-            .await
-            .with_context(|| format!("failed to create file `{map_path:?}`"))?;
-
-        file.write_all(&bytes)
-            .await
-            .with_context(|| format!("failed writing to file `{map_path:?}`"))?;
-
-        info!("Downloaded {map_id}.osu successfully");
-    }
-
-    Ok(map_path)
-}
-
 pub trait ExtractablePp {
     fn extract_pp(&self) -> Vec<f32>;
 }

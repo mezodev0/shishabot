@@ -158,8 +158,8 @@ async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> 
     Ok(())
 }
 
-async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
-    format!("Bla bla TODO write this mezo")
+async fn general_text(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
+    format!("Bla bla TODO write this mezo {}", 123)
 }
 
 async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
@@ -184,8 +184,8 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
         let _ = msg.create_message(&ctx, &builder).await;
     }
 
-    let desc = description(&ctx, msg.guild_id).await;
-    let embed = EmbedBuilder::new().description(desc).build();
+    let description = general_text(&ctx, msg.guild_id).await;
+    let embed = EmbedBuilder::new().description(description).build();
     let components = help_select_menu(None);
     let builder = MessageBuilder::new().embed(embed).components(components);
 
@@ -207,8 +207,8 @@ pub async fn handle_help_category(
 
     let group = match value.as_str() {
         "general" => {
-            let desc = description(ctx, None).await;
-            let embed = EmbedBuilder::new().description(desc).build();
+            let description = general_text(ctx, None).await;
+            let embed = EmbedBuilder::new().description(description).build();
             let components = help_select_menu(None);
             let builder = MessageBuilder::new().embed(embed).components(components);
 
@@ -233,23 +233,27 @@ pub async fn handle_help_category(
 
     cmds.sort_unstable_by_key(|cmd| cmd.name());
 
-    let mut desc = String::with_capacity(64);
+    let mut description = String::with_capacity(64);
 
     let emote = group.emote();
     let name = group.name();
-    let _ = writeln!(desc, "{emote} __**{name}**__");
+    let _ = writeln!(description, "{emote} __**{name}**__");
 
     for cmd in cmds {
         let name = cmd.name();
         let authority = if cmd.flags.authority() { "**\\***" } else { "" };
-        let _ = writeln!(desc, "`{name}`{authority}: {}", cmd.desc);
+        let _ = writeln!(description, "`{name}`{authority}: {}", cmd.desc);
     }
 
     let footer = FooterBuilder::new(
         "*: Either can't be used in DMs or requires authority status in the server",
     );
 
-    let embed = EmbedBuilder::new().description(desc).footer(footer).build();
+    let embed = EmbedBuilder::new()
+        .description(description)
+        .footer(footer)
+        .build();
+
     let components = help_select_menu(Some(group));
     let builder = MessageBuilder::new().embed(embed).components(components);
 

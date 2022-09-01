@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use eyre::{Context as EyreContext, Result};
+use eyre::{Context as _, Result};
 use futures::StreamExt;
 use twilight_gateway::{cluster::Events, Event};
 use twilight_model::gateway::{
@@ -79,8 +79,8 @@ pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
         tokio::spawn(async move {
             let handle_fut = handle_event(ctx, event, shard_id);
 
-            if let Err(report) = handle_fut.await.wrap_err("error while handling event") {
-                error!("{report:?}");
+            if let Err(err) = handle_fut.await.context("error while handling event") {
+                error!("{err:?}");
             }
         });
     }

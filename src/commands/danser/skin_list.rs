@@ -31,8 +31,7 @@ async fn prefix_skinlist(ctx: Arc<Context>, msg: &Message) -> Result<()> {
 }
 
 async fn skin_list(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
-    let mut skins_path = BotConfig::get().paths.folders.clone();
-    skins_path.push("Skins");
+    let mut skins_path = BotConfig::get().paths.skins();
 
     let mut dir = match fs::read_dir(&skins_path).await {
         Ok(dir) => dir,
