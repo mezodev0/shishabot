@@ -1,26 +1,25 @@
-use crate::commands::server_administrator;
+use std::{process::Output, sync::Arc};
+
 use command_macros::SlashCommand;
 use eyre::Result;
-use std::{process::Output, sync::Arc};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
+    commands::server_administrator,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 
-use self::input::*;
-use self::output::*;
-use self::view::*;
+use self::{input::*, output::*, view::*};
 
 mod input;
 mod output;
 mod view;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "setup")]
-#[flags(ONLY_GUILDS, SKIP_DEFER)]
+#[command(name = "setup", dm_permission = false)]
+#[flags(SKIP_DEFER)]
 /// Channel setup for the bot
 pub enum Setup {
     #[command(name = "view")]

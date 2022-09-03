@@ -1,15 +1,12 @@
 use pagination::AttributeList;
-use prefix::CommandFun;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod bucket;
-mod embed_data;
 mod flags;
 mod has_mods;
 mod has_name;
 mod pagination;
-mod prefix;
 mod slash;
 mod util;
 
@@ -56,29 +53,6 @@ pub fn has_mods(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Derive the `EmbedData` trait which provides a `build` method.
-///
-/// Can only be derived on structs with any of the following field names:
-/// - `author`
-/// - `color`
-/// - `description`
-/// - `fields`
-/// - `footer`
-/// - `image`
-/// - `timestamp`
-/// - `title`
-/// - `thumbnail`
-/// - `url`
-#[proc_macro_derive(EmbedData)]
-pub fn embed_data(input: TokenStream) -> TokenStream {
-    let derive_input = parse_macro_input!(input as DeriveInput);
-
-    match embed_data::derive(derive_input) {
-        Ok(result) => result.into(),
-        Err(err) => err.to_compile_error().into(),
-    }
-}
-
 /// Auxiliary procedural macro for pagination structs.
 ///
 /// Two attribute name-value pairs are required:
@@ -101,29 +75,6 @@ pub fn pagination(attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     match pagination::impl_(input, attrs) {
-        Ok(result) => result.into(),
-        Err(err) => err.to_compile_error().into(),
-    }
-}
-
-/// Available attributes:
-/// - `desc`: string (required)
-/// - `group`: `PrefixCommandGroup` (required)
-/// - `help`: string
-/// - `usage`: string
-/// - `aliases`: list of strings
-/// - `example`: list of strings
-/// - `bucket`: `BucketName`
-/// - `flags`: list of  `CommandFlags`
-#[proc_macro_attribute]
-pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
-    if let Err(err) = prefix::attr(attr) {
-        return err.into_compile_error().into();
-    }
-
-    let fun = parse_macro_input!(input as CommandFun);
-
-    match prefix::fun(fun) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

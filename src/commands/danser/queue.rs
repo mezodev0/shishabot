@@ -1,6 +1,6 @@
 use std::{fmt::Write, sync::Arc};
 
-use command_macros::{command, SlashCommand};
+use command_macros::SlashCommand;
 use eyre::Result;
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};

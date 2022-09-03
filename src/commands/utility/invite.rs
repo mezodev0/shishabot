@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use command_macros::{command, SlashCommand};
+use command_macros::SlashCommand;
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 

@@ -48,7 +48,7 @@ impl Parse for Flags {
                         return Ok((ident, rest));
                     }
 
-                    r#"expected "AUTHORITY", "EPHEMERAL", "ONLY_GUILDS", "ONLY_OWNER", or "SKIP_DEFER""#
+                    r#"expected "AUTHORITY", "EPHEMERAL", "ONLY_OWNER", or "SKIP_DEFER""#
                 } else {
                     "expected identifier"
                 };
@@ -70,8 +70,8 @@ impl Parse for Flags {
 }
 
 fn accept_as_flag(ident: &Ident) -> bool {
-    match ident.to_string().as_str() {
-        "AUTHORITY" | "EPHEMERAL" | "ONLY_GUILDS" | "ONLY_OWNER" | "SKIP_DEFER" => true,
-        _ => false,
-    }
+    matches!(
+        ident.to_string().as_str(),
+        "AUTHORITY" | "EPHEMERAL" | "ONLY_OWNER" | "SKIP_DEFER"
+    )
 }
