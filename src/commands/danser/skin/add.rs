@@ -3,7 +3,7 @@ use std::{
     borrow::Borrow,
     fmt::{Display, Formatter, Result as FmtResult},
     io::{Cursor, Result as IoResult},
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::Arc,
 };
 use tokio::fs;
@@ -203,6 +203,34 @@ fn copy_all(from: PathBuf, to: PathBuf) -> IoResult<()> {
     Ok(())
 }
 
+async fn case_insensitive_exists(path_with_file: PathBuf) -> IoResult<bool> {
+    // remove skin.ini from path
+    let mut ancestors = path_with_file.ancestors();
+    ancestors.next();
+
+    let path = if let Some(path) = ancestors.next() {
+        path
+    } else {
+        return Ok(false);
+    };
+
+    let file_name_as_lower = if let Some(file_name) = path_with_file.file_name() {
+        file_name.to_ascii_lowercase()
+    } else {
+        return Ok(false);
+    };
+
+    let mut dir = fs::read_dir(path).await?;
+
+    while let Some(item) = dir.next_entry().await? {
+        if item.file_name().to_ascii_lowercase() == file_name_as_lower {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
 async fn move_directory(to: &PathBuf) -> IoResult<bool> {
     let mut skin_folder = fs::read_dir(&to).await?;
 
@@ -215,9 +243,8 @@ async fn move_directory(to: &PathBuf) -> IoResult<bool> {
     let from = skin_folder_elements.path();
     let mut skin_ini = to.clone();
     skin_ini.push("skin.ini");
-    if copy_all(from, to.clone()).is_ok() && PathBuf::from(skin_ini).exists() {
+    if copy_all(from, to.clone()).is_ok() && case_insensitive_exists(skin_ini).await? {
         fs::remove_dir_all(skin_folder_elements.path()).await?;
-
         Ok(true)
     } else {
         Ok(false)
