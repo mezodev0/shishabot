@@ -40,6 +40,7 @@ impl SlashCommands {
                 Queue => QUEUE_SLASH,
                 Render => RENDER_SLASH,
                 Setup => SETUP_SLASH,
+                Skin => SKIN_SLASH,
                 SkinList => SKINLIST_SLASH,
             }
         })
