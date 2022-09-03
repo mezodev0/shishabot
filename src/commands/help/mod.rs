@@ -1,43 +1,58 @@
-use std::{collections::BTreeMap, fmt::Write};
-
-use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
+use twilight_interactions::command::{
+    ApplicationCommandData, CommandOptionExt, CommandOptionExtInner,
+};
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
     channel::embed::EmbedField,
 };
 
+use crate::core::commands::slash::SlashCommands;
+
 pub use self::{
-    components::handle_help_component,
+    components::{handle_help_basecommand, handle_help_subcommand},
     interaction::{slash_help, Help, HELP_SLASH},
 };
 
 mod components;
 mod interaction;
 
-const AUTHORITY_STATUS: &str = "Requires authority status (check the /authorities command)";
+fn generate_menus(options: &[CommandOptionExt]) -> Vec<Component> {
+    let base_options: Vec<_> = SlashCommands::get().collect(|c| {
+        let ApplicationCommandData {
+            name, description, ..
+        } = (c.create)();
 
-fn failed_message_content(dists: BTreeMap<usize, &'static str>) -> String {
-    let mut names = dists.iter().take(5).map(|(_, &name)| name);
-
-    if let Some(name) = names.next() {
-        let count = dists.len().min(5);
-        let mut content = String::with_capacity(14 + count * (5 + 2) + (count - 1) * 2);
-        content.push_str("Did you mean ");
-        let _ = write!(content, "`{name}`");
-
-        for name in names {
-            let _ = write!(content, ", `{name}`");
+        SelectMenuOption {
+            default: false,
+            description: Some(description),
+            emoji: None,
+            label: name.clone(),
+            value: name,
         }
+    });
 
-        content.push('?');
+    let select_menu = SelectMenu {
+        custom_id: "help_basecommand".to_owned(),
+        disabled: false,
+        max_values: None,
+        min_values: None,
+        options: base_options,
+        placeholder: Some("Select a base command".to_owned()),
+    };
 
-        content
-    } else {
-        "There is no such command".to_owned()
+    let row = ActionRow {
+        components: vec![Component::SelectMenu(select_menu)],
+    };
+
+    let base_menu = Component::ActionRow(row);
+
+    match parse_subcommand_menu(options) {
+        Some(sub_menu) => vec![base_menu, sub_menu],
+        None => vec![base_menu],
     }
 }
 
-fn parse_select_menu(options: &[CommandOptionExt]) -> Option<Vec<Component>> {
+fn parse_subcommand_menu(options: &[CommandOptionExt]) -> Option<Component> {
     if options.is_empty() {
         return None;
     }
@@ -63,7 +78,7 @@ fn parse_select_menu(options: &[CommandOptionExt]) -> Option<Vec<Component>> {
     }
 
     let select_menu = SelectMenu {
-        custom_id: "help_menu".to_owned(),
+        custom_id: "help_subcommand".to_owned(),
         disabled: false,
         max_values: None,
         min_values: None,
@@ -75,7 +90,7 @@ fn parse_select_menu(options: &[CommandOptionExt]) -> Option<Vec<Component>> {
         components: vec![Component::SelectMenu(select_menu)],
     };
 
-    Some(vec![Component::ActionRow(row)])
+    Some(Component::ActionRow(row))
 }
 
 fn option_fields(children: &[CommandOptionExt]) -> Vec<EmbedField> {
@@ -108,7 +123,7 @@ fn option_fields(children: &[CommandOptionExt]) -> Vec<EmbedField> {
                 .map_or_else(|| description.to_owned(), |help| help.to_owned());
 
             let field = EmbedField {
-                inline: value.len() <= 40,
+                inline: value.len() <= 37,
                 name,
                 value,
             };

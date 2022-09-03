@@ -1,10 +1,9 @@
-use std::{iter::Copied, pin::Pin};
+use std::pin::Pin;
 
 use eyre::Result;
 use futures::Future;
 use once_cell::sync::OnceCell;
-use radix_trie::{iter::Keys, Trie, TrieCommon};
-use twilight_model::application::command::Command;
+use radix_trie::{Trie, TrieCommon};
 
 use crate::commands::{danser::*, help::*, owner::*, utility::*};
 
@@ -30,8 +29,6 @@ pub struct SlashCommands(Trie<&'static str, &'static SlashCommand>);
 
 pub type CommandResult = Pin<Box<dyn Future<Output = Result<()>> + 'static + Send>>;
 
-type CommandKeys<'t> = Copied<Keys<'t, &'static str, &'static SlashCommand>>;
-
 impl SlashCommands {
     pub fn get() -> &'static Self {
         SLASH_COMMANDS.get_or_init(|| {
@@ -52,17 +49,10 @@ impl SlashCommands {
         self.0.get(command).copied()
     }
 
-    pub fn collect(&self) -> Vec<Command> {
-        self.0.values().map(|c| (c.create)().into()).collect()
-    }
-
-    pub fn names(&self) -> CommandKeys<'_> {
-        self.0.keys().copied()
-    }
-
-    pub fn descendants(&self, prefix: &str) -> Option<CommandKeys<'_>> {
-        self.0
-            .get_raw_descendant(prefix)
-            .map(|sub| sub.keys().copied())
+    pub fn collect<F, O>(&self, f: F) -> Vec<O>
+    where
+        F: FnMut(&SlashCommand) -> O,
+    {
+        self.0.values().copied().map(f).collect()
     }
 }

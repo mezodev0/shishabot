@@ -47,7 +47,7 @@ async fn async_main() -> Result<()> {
     let ctx = Arc::new(ctx);
 
     // Initialize commands
-    let slash_commands = SlashCommands::get().collect();
+    let slash_commands = SlashCommands::get().collect(|c| (c.create)().into());
     info!("Setting {} slash commands...", slash_commands.len());
 
     // info!("Defining: {slash_commands:#?}");

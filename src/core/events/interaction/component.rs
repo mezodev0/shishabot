@@ -3,7 +3,7 @@ use std::{mem, sync::Arc};
 use eyre::Context as _;
 
 use crate::{
-    commands::help::handle_help_component,
+    commands::help::{handle_help_basecommand, handle_help_subcommand},
     core::{events::log_command, Context},
     pagination::components::*,
     util::interaction::InteractionComponent,
@@ -14,7 +14,8 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
     log_command(&ctx, &component, &name);
 
     let res = match name.as_str() {
-        "help_menu" | "help_back" => handle_help_component(&ctx, component).await,
+        "help_basecommand" => handle_help_basecommand(&ctx, component).await,
+        "help_subcommand" => handle_help_subcommand(&ctx, component).await,
         "pagination_start" => handle_pagination_start(ctx, component).await,
         "pagination_back" => handle_pagination_back(ctx, component).await,
         "pagination_custom" => handle_pagination_custom(ctx, component).await,
