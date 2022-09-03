@@ -9,12 +9,10 @@ use twilight_model::{
 pub use self::{
     components::handle_help_component,
     interaction::{slash_help, Help, HELP_SLASH},
-    message::{handle_help_category, HELP_PREFIX},
 };
 
 mod components;
 mod interaction;
-mod message;
 
 const AUTHORITY_STATUS: &str = "Requires authority status (check the /authorities command)";
 

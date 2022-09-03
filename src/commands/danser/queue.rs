@@ -6,10 +6,11 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::{commands::CommandOrigin, Context, ReplayData, ReplayStatus},
+    core::{Context, ReplayData, ReplayStatus},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         interaction::InteractionCommand,
+        InteractionCommandExt,
     },
 };
 
@@ -20,19 +21,6 @@ use crate::{
 pub struct Queue;
 
 async fn slash_queue(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    queue(ctx, (&mut command).into()).await
-}
-
-#[command]
-#[desc("Display the current replay queue")]
-#[alias("q")]
-#[flags(SKIP_DEFER)]
-#[group(Danser)]
-async fn prefix_queue(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    queue(ctx, msg.into()).await
-}
-
-async fn queue(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let queue_guard = ctx.replay_queue.queue.lock().await;
 
     let queue_list = if queue_guard.is_empty() {
@@ -68,7 +56,7 @@ async fn queue(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         .timestamp(OffsetDateTime::now_utc());
 
     let builder = MessageBuilder::new().embed(embed);
-    orig.callback(&ctx, builder).await?;
+    command.callback(&ctx, builder, false).await?;
 
     Ok(())
 }

@@ -1,8 +1,6 @@
-pub use self::{flags::CommandFlags, origin::CommandOrigin};
+pub use self::flags::CommandFlags;
 
 mod flags;
-mod origin;
 
 pub mod checks;
-pub mod prefix;
 pub mod slash;

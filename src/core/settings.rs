@@ -9,9 +9,6 @@ use twilight_model::id::{
 
 use crate::{util::hasher::SimpleBuildHasher, DEFAULT_PREFIX};
 
-pub type Prefix = SmallString<[u8; 2]>;
-pub type Prefixes = SmallVec<[Prefix; 2]>;
-
 type Servers = FlurryMap<Id<GuildMarker>, Server, SimpleBuildHasher>;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -24,7 +21,6 @@ pub struct RootSettings {
 pub struct Server {
     pub input_channels: std::collections::HashSet<Id<ChannelMarker>>,
     pub output_channel: Option<Id<ChannelMarker>>,
-    pub prefixes: Prefixes,
 }
 
 impl Server {
@@ -35,7 +31,6 @@ impl Server {
         Self {
             input_channels,
             output_channel,
-            prefixes: smallvec::smallvec![DEFAULT_PREFIX.into()],
         }
     }
 }
@@ -56,15 +51,13 @@ mod servers {
 
     use crate::util::hasher::SimpleBuildHasher;
 
-    use super::{FlurryMap, Prefixes, Server, Servers};
+    use super::{FlurryMap, Server, Servers};
 
     #[derive(Deserialize)]
     struct RawServer {
         server_id: Id<GuildMarker>,
         input_channels: std::collections::HashSet<Id<ChannelMarker>>,
         output_channel: Option<Id<ChannelMarker>>,
-        #[serde(default)]
-        prefixes: Prefixes,
     }
 
     struct ServersVisitor;
@@ -90,13 +83,11 @@ mod servers {
                         server_id,
                         input_channels,
                         output_channel,
-                        prefixes,
                     } = raw;
 
                     let server = Server {
                         input_channels,
                         output_channel,
-                        prefixes,
                     };
 
                     guard.insert(server_id, server);
@@ -118,16 +109,11 @@ mod servers {
 
     impl Serialize for BorrowedRawServer<'_> {
         fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-            let mut raw =
-                s.serialize_struct("RawServer", 4 - self.server.prefixes.is_empty() as usize)?;
+            let mut raw = s.serialize_struct("RawServer", 3)?;
 
             raw.serialize_field("server_id", &self.server_id)?;
             raw.serialize_field("input_channels", &self.server.input_channels)?;
             raw.serialize_field("output_channel", &self.server.output_channel)?;
-
-            if !self.server.prefixes.is_empty() {
-                raw.serialize_field("prefixes", &self.server.prefixes)?;
-            }
 
             raw.end()
         }

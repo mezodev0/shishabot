@@ -24,7 +24,7 @@ use super::{ReplayData, ReplayQueue, ReplaySlim};
 
 impl ReplayQueue {
     pub fn process(ctx: Arc<Context>) {
-        tokio::spawn(Self::async_process(ctx));
+        // tokio::spawn(Self::async_process(ctx));
     }
 
     async fn async_process(ctx: Arc<Context>) {

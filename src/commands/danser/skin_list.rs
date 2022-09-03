@@ -6,9 +6,9 @@ use tokio::fs::{self, ReadDir};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::{commands::CommandOrigin, BotConfig, Context},
+    core::{BotConfig, Context},
     pagination::SkinListPagination,
-    util::{constants::GENERAL_ISSUE, interaction::InteractionCommand},
+    util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
 };
 
 #[derive(CreateCommand, CommandModel, SlashCommand)]
@@ -18,25 +18,12 @@ use crate::{
 pub struct SkinList;
 
 async fn slash_skinlist(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    skin_list(ctx, (&mut command).into()).await
-}
-
-#[command]
-#[desc("Displays all skins available")]
-#[alias("sl")]
-#[flags(SKIP_DEFER)]
-#[group(Danser)]
-async fn prefix_skinlist(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    skin_list(ctx, msg.into()).await
-}
-
-async fn skin_list(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let mut skins_path = BotConfig::get().paths.skins();
 
     let mut dir = match fs::read_dir(&skins_path).await {
         Ok(dir) => dir,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error_callback(&ctx, GENERAL_ISSUE, false).await;
 
             return Err(err).with_context(|| format!("failed to read {skins_path:?} directory"));
         }
@@ -53,7 +40,7 @@ async fn skin_list(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
             }
             Ok(None) => break,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = command.error_callback(&ctx, GENERAL_ISSUE, false).await;
 
                 return Err(err)
                     .with_context(|| format!("failed to get next entry in {skins_path:?}"));
@@ -61,5 +48,5 @@ async fn skin_list(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         }
     }
 
-    SkinListPagination::builder(skins).start(ctx, orig).await
+    SkinListPagination::builder(skins).start(ctx, command).await
 }

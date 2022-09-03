@@ -8,8 +8,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
 
 use crate::{
-    core::{commands::CommandOrigin, BotConfig, Context, ReplayData, TimePoints},
-    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
+    core::{BotConfig, Context, ReplayData, TimePoints},
+    util::{
+        builder::MessageBuilder, interaction::InteractionCommand, Authored, InteractionCommandExt,
+    },
 };
 
 #[derive(CreateCommand, CommandModel, SlashCommand)]
@@ -28,50 +30,44 @@ pub struct Render {
 }
 
 pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let args = Render::from_interaction(command.input_data())?;
-
-    render(ctx, (&mut command).into(), args).await
-}
-
-async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Result<()> {
     let Render {
         attachment,
         start,
         end,
-    } = args;
+    } = Render::from_interaction(command.input_data())?;
 
     if !matches!(attachment.filename.split('.').last(), Some("osr")) {
         let content = "The attachment must be a .osr file!";
-        orig.error(&ctx, content).await?;
+        command.error(&ctx, content).await?;
 
         return Ok(());
     }
 
-    let output_channel = match orig.guild_id() {
+    let output_channel = match command.guild_id {
         Some(guild) => match ctx.guild_settings(guild, |server| server.output_channel) {
             Some(Some(output_channel)) => output_channel,
             Some(None) => {
                 let content = "Looks like this server has not setup their output channel yet.\n\
-                Be sure to use `/setup` first.";
-                orig.error(&ctx, content).await?;
+                    Be sure to use `/setup` first.";
+                command.error(&ctx, content).await?;
 
                 return Ok(());
             }
             None => {
                 let content = "Looks like this server has not setup their output channel yet.\n\
                     Be sure to use `/setup` first.";
-                orig.error(&ctx, content).await?;
+                command.error(&ctx, content).await?;
 
                 return Ok(());
             }
         },
-        None => orig.channel_id(),
+        None => command.channel_id,
     };
 
     let bytes = match ctx.client().get_discord_attachment(&attachment).await {
         Ok(bytes) => bytes,
         Err(err) => {
-            orig.error(&ctx, "Failed to download attachment").await?;
+            command.error(&ctx, "Failed to download attachment").await?;
 
             return Err(err);
         }
@@ -81,7 +77,7 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
         Ok(replay) => replay,
         Err(err) => {
             let content = "Failed to parse the .osr file. Did you give a valid replay file?";
-            orig.error(&ctx, content).await?;
+            command.error(&ctx, content).await?;
 
             return Err(err).context("failed to parse .osr file");
         }
@@ -89,7 +85,7 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
 
     if replay.mode != Mode::Standard {
         let content = "danser only accepts osu!standard plays, sorry :(";
-        orig.error(&ctx, content).await?;
+        command.error(&ctx, content).await?;
 
         return Ok(());
     }
@@ -101,25 +97,25 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
     let mut file = match File::create(&replay_file).await {
         Ok(file) => file,
         Err(err) => {
-            orig.error(&ctx, "Failed to store replay file").await?;
+            command.error(&ctx, "Failed to store replay file").await?;
 
             return Err(err).with_context(|| format!("failed to create file `{replay_file:?}`"));
         }
     };
 
     if let Err(err) = file.write_all(&bytes).await {
-        orig.error(&ctx, "Failed to store replay file").await?;
+        command.error(&ctx, "Failed to store replay file").await?;
 
         return Err(err).with_context(|| format!("failed writing to file `{replay_file:?}`"));
     };
 
     let replay_data = ReplayData {
-        input_channel: orig.channel_id(),
+        input_channel: command.channel_id,
         output_channel,
         path: replay_file,
         replay: replay.into(),
         time_points: TimePoints { start, end },
-        user: orig.user_id()?,
+        user: command.user_id()?,
     };
 
     ctx.replay_queue.push(replay_data).await;
@@ -127,7 +123,7 @@ async fn render(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Render) -> Res
     let content = "Replay has been pushed to the queue!";
     let builder = MessageBuilder::new().embed(content);
 
-    orig.create_message(&ctx, &builder).await?;
+    command.update(&ctx, &builder).await?;
 
     Ok(())
 }

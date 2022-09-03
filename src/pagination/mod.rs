@@ -15,8 +15,11 @@ use twilight_model::{
 };
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
-    util::{builder::MessageBuilder, numbers::last_multiple, MessageExt},
+    core::Context,
+    util::{
+        builder::MessageBuilder, interaction::InteractionCommand, numbers::last_multiple, Authored,
+        InteractionCommandExt, MessageExt,
+    },
 };
 
 pub use self::skin_list::*;
@@ -49,7 +52,7 @@ pub struct Pagination {
 impl Pagination {
     async fn start(
         ctx: Arc<Context>,
-        orig: CommandOrigin<'_>,
+        command: InteractionCommand,
         builder: PaginationBuilder,
     ) -> Result<()> {
         let PaginationBuilder {
@@ -76,9 +79,11 @@ impl Pagination {
         }
 
         let response_raw = if start_by_callback {
-            orig.callback_with_response(&ctx, builder).await?
+            command.callback(&ctx, builder, false).await?;
+
+            ctx.interaction().response(&command.token).exec().await?
         } else {
-            orig.create_message(&ctx, &builder).await?
+            command.update(&ctx, &builder).await?
         };
 
         if pages.last_index == 0 {
@@ -93,7 +98,7 @@ impl Pagination {
         Self::spawn_timeout(Arc::clone(&ctx), rx, msg, channel);
 
         let pagination = Pagination {
-            author: orig.user_id()?,
+            author: command.user_id()?,
             component_kind,
             defer_components,
             kind,
@@ -180,8 +185,8 @@ impl PaginationBuilder {
     }
 
     /// Start the pagination
-    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
-        Pagination::start(ctx, orig, self).await
+    pub async fn start(self, ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
+        Pagination::start(ctx, command, self).await
     }
 
     /// Add an attachment to the initial message which
