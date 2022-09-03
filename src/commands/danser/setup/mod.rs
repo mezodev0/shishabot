@@ -63,8 +63,8 @@ pub struct SetupOutput {
 
 async fn slash_setup(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Setup::from_interaction(command.input_data())? {
-        Setup::View(_) => view(ctx, command).await,
         Setup::Input(args) => input(ctx, command, args).await,
         Setup::Output(args) => output(ctx, command, args).await,
+        Setup::View(_) => view(ctx, command).await,
     }
 }

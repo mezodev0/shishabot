@@ -9,46 +9,33 @@ use crate::{
 };
 
 pub async fn view(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
-    let input_channels = if let Some(input_channels) =
-        ctx.guild_settings(command.guild_id.unwrap(), |s| s.input_channels.clone())
-    {
-        input_channels
-    } else {
-        HashSet::new()
-    };
+    let guild_id = command.guild_id.unwrap();
 
-    let output_channel = if let Some(output_channel) =
-        ctx.guild_settings(command.guild_id.unwrap(), |s| s.output_channel)
-    {
-        output_channel
-    } else {
-        None
-    };
+    let input_channels = ctx
+        .guild_settings(guild_id, |server| {
+            let mut iter = server.input_channels.iter();
 
-    let mut iter = input_channels.iter();
+            iter.next().map(|channel| {
+                let mut text = format!("<#{channel}>");
 
-    let input_channel_text = if let Some(channel) = iter.next() {
-        let mut text = format!("<#{}>", channel.to_string());
+                for channel in iter {
+                    let _ = write!(text, ", <#{channel}>");
+                }
 
-        for channel in iter {
-            let _ = write!(text, ", <#{channel}>");
-        }
+                text
+            })
+        })
+        .flatten()
+        .unwrap_or_else(|| "None".to_owned());
 
-        text
-    } else {
-        "None".to_owned()
-    };
+    let output_channel = ctx
+        .guild_settings(guild_id, |s| s.output_channel)
+        .flatten()
+        .map_or_else(|| "None".to_owned(), |channel| format!("<#{channel}>"));
 
-    let output_channel_text = if let Some(channel) = output_channel {
-        format!("<#{channel}>")
-    } else {
-        "None".to_owned()
-    };
-
-    let content =
-        format!("Input channels: {input_channel_text}\nOutput channel: {output_channel_text}");
+    let content = format!("Input channels: {input_channels}\nOutput channel: {output_channel}");
     let builder = MessageBuilder::new().embed(content);
-
     command.callback(&ctx, builder, false).await;
+
     Ok(())
 }
