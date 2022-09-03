@@ -11,7 +11,7 @@ use twilight_model::gateway::{
     presence::{ActivityType, MinimalActivity, Status},
 };
 
-use crate::{util::Authored, DEFAULT_PREFIX};
+use crate::util::Authored;
 
 use self::{interaction::handle_interaction, message::handle_message};
 
@@ -24,7 +24,6 @@ mod message;
 enum ProcessResult {
     Success,
     NoDM,
-    NoSendPermission,
     Ratelimited(BucketName),
     NoOwner,
     NoAuthority,
@@ -102,7 +101,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
 
             let activity = MinimalActivity {
                 kind: ActivityType::Watching,
-                name: format!("in {count} servers | {DEFAULT_PREFIX}help"),
+                name: format!("in {count} servers"),
                 url: None,
             };
 

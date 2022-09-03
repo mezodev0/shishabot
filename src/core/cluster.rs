@@ -8,8 +8,6 @@ use twilight_model::gateway::{
     presence::{ActivityType, MinimalActivity, Status},
 };
 
-use crate::DEFAULT_PREFIX;
-
 pub async fn build_cluster(
     token: &str,
     http: Arc<Client>,
@@ -38,7 +36,7 @@ pub async fn build_cluster(
 
     let activity = MinimalActivity {
         kind: ActivityType::Playing,
-        name: format!("{DEFAULT_PREFIX}help"),
+        name: String::new(),
         url: None,
     };
 

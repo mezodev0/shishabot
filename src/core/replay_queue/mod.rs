@@ -1,17 +1,8 @@
-use std::{
-    collections::VecDeque,
-    fmt::{Debug, Display, Formatter, Result as FmtResult},
-    path::PathBuf,
-};
+use std::collections::VecDeque;
 
-use osu_db::Replay;
 use tokio::sync::{
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     Mutex,
-};
-use twilight_model::id::{
-    marker::{ChannelMarker, UserMarker},
-    Id,
 };
 
 pub use self::data::*;

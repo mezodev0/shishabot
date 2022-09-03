@@ -11,7 +11,7 @@ use std::{
 use bytes::Bytes;
 use eyre::{Context as _, ContextCompat, Report, Result};
 use rosu_pp::{Beatmap, BeatmapExt};
-use rosu_v2::prelude::{Beatmap as Map, Beatmapset, GameMods};
+use rosu_v2::prelude::{Beatmap as Map, GameMods};
 use tokio::process::Command;
 use zip::ZipArchive;
 
@@ -24,7 +24,7 @@ use super::{ReplayData, ReplayQueue, ReplaySlim};
 
 impl ReplayQueue {
     pub fn process(ctx: Arc<Context>) {
-        // tokio::spawn(Self::async_process(ctx));
+        tokio::spawn(Self::async_process(ctx));
     }
 
     async fn async_process(ctx: Arc<Context>) {
@@ -355,7 +355,7 @@ async fn get_beatmap_osu_file(mapset_id: u32, map_without_artist: &str) -> Resul
     let mut items_dir = BotConfig::get().paths.songs();
     items_dir.push(mapset_id.to_string());
 
-    let mut items = fs::read_dir(&items_dir)
+    let items = fs::read_dir(&items_dir)
         .with_context(|| format!("failed to read items dir at {items_dir:?}"))?;
 
     let mut max_similarity = 0.0;

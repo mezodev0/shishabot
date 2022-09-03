@@ -4,4 +4,4 @@ use twilight_model::channel::Message;
 
 use crate::core::Context;
 
-pub async fn handle_message(ctx: Arc<Context>, msg: Message) {}
+pub async fn handle_message(_ctx: Arc<Context>, _msg: Message) {}

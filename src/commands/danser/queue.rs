@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::{Context, ReplayData, ReplayStatus},
+    core::{Context, ReplayStatus},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         interaction::InteractionCommand,
@@ -20,7 +20,7 @@ use crate::{
 /// Displays the current replay queue
 pub struct Queue;
 
-async fn slash_queue(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_queue(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let queue_guard = ctx.replay_queue.queue.lock().await;
 
     let queue_list = if queue_guard.is_empty() {

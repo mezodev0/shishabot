@@ -25,9 +25,7 @@ impl Buckets {
     }
 
     pub fn get(&self, bucket: BucketName) -> &Mutex<Bucket> {
-        match bucket {
-            BucketName::All => &self.0[0],
-        }
+        &self.0[bucket as usize]
     }
 }
 
@@ -87,6 +85,7 @@ impl Bucket {
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
+#[repr(u8)]
 pub enum BucketName {
     All,
 }

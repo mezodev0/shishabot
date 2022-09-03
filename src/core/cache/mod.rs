@@ -7,7 +7,7 @@ use twilight_cache_inmemory::{
 };
 use twilight_gateway::{shard::ResumeSession, Event};
 use twilight_model::{
-    channel::{Channel, Message},
+    channel::Channel,
     guild::Role,
     id::{
         marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
@@ -131,11 +131,6 @@ impl Cache {
 
     pub fn is_guild_owner(&self, guild: Id<GuildMarker>, user: Id<UserMarker>) -> Result<bool> {
         self.guild(guild, |g| g.owner_id() == user)
-    }
-
-    pub async fn is_own(&self, other: &Message) -> bool {
-        self.current_user(|user| user.id == other.author.id)
-            .unwrap_or(false)
     }
 }
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
 use eyre::{Context as _, Result};
-use tokio::fs::{self, ReadDir};
+use tokio::fs;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
@@ -17,8 +17,8 @@ use crate::{
 /// Displays all skins available
 pub struct SkinList;
 
-async fn slash_skinlist(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let mut skins_path = BotConfig::get().paths.skins();
+async fn slash_skinlist(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
+    let skins_path = BotConfig::get().paths.skins();
 
     let mut dir = match fs::read_dir(&skins_path).await {
         Ok(dir) => dir,

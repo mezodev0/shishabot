@@ -1,12 +1,8 @@
-use std::{
-    error::Error,
-    fmt::{Display, Formatter, Result as FmtResult},
-    hash::Hash,
-};
+use std::hash::Hash;
 
 use bytes::Bytes;
-use eyre::{Context as _, Report, Result};
-use http::{Response, StatusCode};
+use eyre::{Context as _, Result};
+use http::Response;
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
     header::{CONTENT_TYPE, USER_AGENT},
@@ -15,16 +11,13 @@ use hyper::{
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
 use serde::Serialize;
-use tokio::time::{sleep, Duration};
+use tokio::time::Duration;
 use twilight_model::channel::Attachment;
-
-use crate::util::{constants::OSU_BASE, ExponentialBackoff};
 
 mod deserialize;
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
 
-const APPLICATION_JSON: &str = "application/json";
 const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]

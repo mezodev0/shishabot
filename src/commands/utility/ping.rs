@@ -22,10 +22,10 @@ use crate::{
 /// Check if the bot is online
 pub struct Ping;
 
-async fn slash_ping(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_ping(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let builder = MessageBuilder::new().content("Pong");
     let start = Instant::now();
-    let response_raw = command.callback(&ctx, builder, false).await?;
+    command.callback(&ctx, builder, false).await?;
     let elapsed = (Instant::now() - start).as_millis();
 
     let response = ctx

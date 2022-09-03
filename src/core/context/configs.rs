@@ -9,7 +9,7 @@ use twilight_model::id::{
 
 use crate::{
     core::{settings::Server, BotConfig},
-    Context, DEFAULT_PREFIX,
+    Context,
 };
 
 impl Context {
@@ -21,7 +21,7 @@ impl Context {
     }
 
     pub async fn insert_guild_settings(&self, guild_id: Id<GuildMarker>) -> Result<()> {
-        let mut server = Server::default();
+        let server = Server::default();
 
         let new_entry = self
             .root_settings

@@ -1,10 +1,9 @@
 use std::fmt::Write;
 
 use command_macros::pagination;
-use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
-use crate::util::builder::{AuthorBuilder, EmbedBuilder, FooterBuilder};
+use crate::util::builder::{EmbedBuilder, FooterBuilder};
 
 use super::Pages;
 

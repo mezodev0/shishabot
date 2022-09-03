@@ -1,13 +1,13 @@
-use flurry::{HashMap as FlurryMap, HashSet};
+use std::collections::HashSet;
+
+use flurry::HashMap as FlurryMap;
 use serde::{Deserialize, Serialize};
-use smallstr::SmallString;
-use smallvec::SmallVec;
 use twilight_model::id::{
     marker::{ChannelMarker, GuildMarker},
     Id,
 };
 
-use crate::{util::hasher::SimpleBuildHasher, DEFAULT_PREFIX};
+use crate::util::hasher::SimpleBuildHasher;
 
 type Servers = FlurryMap<Id<GuildMarker>, Server, SimpleBuildHasher>;
 
@@ -19,26 +19,13 @@ pub struct RootSettings {
 
 #[derive(Clone, Debug, Default)]
 pub struct Server {
-    pub input_channels: std::collections::HashSet<Id<ChannelMarker>>,
+    pub input_channels: HashSet<Id<ChannelMarker>>,
     pub output_channel: Option<Id<ChannelMarker>>,
-}
-
-impl Server {
-    pub fn new(
-        input_channels: std::collections::HashSet<Id<ChannelMarker>>,
-        output_channel: Option<Id<ChannelMarker>>,
-    ) -> Self {
-        Self {
-            input_channels,
-            output_channel,
-        }
-    }
 }
 
 mod servers {
     use std::fmt::{Formatter, Result as FmtResult};
 
-    use flurry::HashSet;
     use serde::{
         de::{SeqAccess, Visitor},
         ser::{SerializeSeq, SerializeStruct},

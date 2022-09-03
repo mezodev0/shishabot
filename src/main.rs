@@ -1,6 +1,6 @@
 // TODO: uncomment
 // #![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
-#![allow(unused)]
+// #![allow(unused)]
 
 #[macro_use]
 extern crate eyre;
@@ -22,8 +22,6 @@ use tokio::{runtime::Builder as RuntimeBuilder, signal};
 use crate::core::{
     commands::slash::SlashCommands, event_loop, logging, BotConfig, Context, ReplayQueue,
 };
-
-pub const DEFAULT_PREFIX: &str = "$";
 
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
