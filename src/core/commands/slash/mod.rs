@@ -42,6 +42,8 @@ impl SlashCommands {
                 Setup => SETUP_SLASH,
                 Skin => SKIN_SLASH,
                 SkinList => SKINLIST_SLASH,
+                Settings => SETTINGS_SLASH,
+                Setup => SETUP_SLASH,
             }
         })
     }
