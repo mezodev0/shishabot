@@ -1,14 +1,15 @@
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use command_macros::SlashCommand;
 use eyre::{Context as _, Result};
-use tokio::fs;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::{BotConfig, Context},
     pagination::SkinListPagination,
-    util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
+    util::{
+        constants::GENERAL_ISSUE, interaction::InteractionCommand, CowUtils, InteractionCommandExt,
+    },
 };
 
 #[derive(CreateCommand, CommandModel, SlashCommand)]
@@ -20,33 +21,13 @@ pub struct SkinList;
 async fn slash_skinlist(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let skins_path = BotConfig::get().paths.skins();
 
-    let mut dir = match fs::read_dir(&skins_path).await {
-        Ok(dir) => dir,
-        Err(err) => {
-            let _ = command.error_callback(&ctx, GENERAL_ISSUE, false).await;
+    let mut skins = fs::read_dir(&skins_path)
+        .context("failed to read skins folder")?
+        .map(|res| res.map(|entry| entry.file_name().to_string_lossy().replace('_', " ")))
+        .collect::<Result<Vec<_>, _>>()
+        .context("failed to read entry of skins folder")?;
 
-            return Err(err).with_context(|| format!("failed to read {skins_path:?} directory"));
-        }
-    };
-
-    let mut skins = Vec::new();
-
-    loop {
-        match dir.next_entry().await {
-            Ok(Some(entry)) => {
-                let file_name = entry.file_name();
-                let name = file_name.to_string_lossy().replace('_', " ");
-                skins.push(name);
-            }
-            Ok(None) => break,
-            Err(err) => {
-                let _ = command.error_callback(&ctx, GENERAL_ISSUE, false).await;
-
-                return Err(err)
-                    .with_context(|| format!("failed to get next entry in {skins_path:?}"));
-            }
-        }
-    }
+    skins.sort_unstable_by_key(|name| name.to_ascii_lowercase());
 
     SkinListPagination::builder(skins).start(ctx, command).await
 }

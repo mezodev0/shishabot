@@ -7,7 +7,7 @@ use crate::util::builder::{EmbedBuilder, FooterBuilder};
 
 use super::Pages;
 
-#[pagination(per_page = 20, entries = "skins")]
+#[pagination(per_page = 15, entries = "skins")]
 pub struct SkinListPagination {
     skins: Vec<String>,
 }
