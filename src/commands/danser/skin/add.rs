@@ -1,12 +1,14 @@
-use eyre::{Context, Result};
 use std::{
     borrow::Borrow,
+    ffi::OsString,
     fmt::{Display, Formatter, Result as FmtResult},
-    io::{Cursor, Result as IoResult},
+    fs,
+    io::Cursor,
     path::{self, Path, PathBuf},
     sync::Arc,
 };
-use tokio::fs;
+
+use eyre::{Context, Report, Result};
 use twilight_model::channel::Message;
 use zip::ZipArchive;
 
@@ -20,153 +22,147 @@ use crate::{
 
 use super::SkinAdd;
 
-struct FileCounter<'s> {
-    base: &'s str,
-    count: usize,
-}
-
-impl<'s> FileCounter<'s> {
-    fn new(base: &'s str) -> Self {
-        Self { base, count: 0 }
-    }
-
-    fn inc(&mut self) {
-        self.count += 1;
-    }
-}
-
-impl Display for FileCounter<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        if self.count == 0 {
-            f.write_str(self.base)
-        } else {
-            write!(f, "{}_{}", self.base, self.count)
-        }
-    }
-}
-
 pub async fn add(
     ctx: Arc<TwilightContext>,
     command: InteractionCommand,
     args: SkinAdd,
 ) -> Result<()> {
     let SkinAdd { skin } = args;
-    if !matches!(skin.filename.split('.').last(), Some("osk")) {
-        let content = "The attachment must be a .osk file!";
-        command.error_callback(&ctx, content, true).await?;
 
-        return Ok(());
-    }
+    let filename = match skin.filename.rsplit_once('.') {
+        Some((filename, _extension)) => filename,
+        None => {
+            let content = "The attachment must be a .osk file!";
+            command.error_callback(&ctx, content, true).await?;
 
-    {
-        let content = "Downloading...";
-        let builder = MessageBuilder::new().embed(content);
-        command.callback(&ctx, builder, false).await?;
-    }
+            return Ok(());
+        }
+    };
+
+    let builder = MessageBuilder::new().embed("Downloading...");
+    command.callback(&ctx, builder, false).await?;
 
     let bytes = match ctx.client().get_discord_attachment(&skin).await {
         Ok(bytes) => bytes,
         Err(err) => {
-            command.error(&ctx, "Failed to download attachment").await?;
+            let _ = command.error(&ctx, "Failed to download attachment").await;
+            let err = Report::from(err).wrap_err("failed to download skin attachment");
 
             return Err(err);
         }
     };
 
-    {
-        let content = "Zipping...";
-        let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
-    }
+    let mut builder = MessageBuilder::new().embed("Zipping...");
+    command.update(&ctx, &builder).await?;
 
     let cursor = Cursor::new(bytes);
 
     let mut archive = match ZipArchive::new(cursor) {
         Ok(archive) => archive,
         Err(err) => {
-            warn!("failed to create zip archive: {err}");
-            command.error(&ctx, GENERAL_ISSUE).await?;
-            return Ok(());
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let err = Report::from(err).wrap_err("failed to create zip archive");
+
+            return Err(err);
         }
     };
 
     let config = BotConfig::get();
     let mut skin_file = config.paths.skins();
 
-    {
-        let content = "Generating skin name...";
-        let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
-    }
+    // Slight optimization by re-using the builder and overwriting the previous embed
+    builder = builder.embed("Generating skin name...");
+    command.update(&ctx, &builder).await?;
 
-    if let Some((filename, _extension)) = skin.filename.rsplit_once('.') {
-        let mut file_count = FileCounter::new(filename);
-        loop {
-            skin_file.push(file_count.to_string());
-            if !skin_file.exists() {
-                break file_count.to_string();
-            } else {
+    let mut skin_file = BotConfig::get().paths.skins();
+
+    let mut skin_list = fs::read_dir(&skin_file)
+        .context("failed to read skins folder")?
+        .map(|res| res.map(|entry| entry.file_name().to_ascii_lowercase()))
+        .collect::<Result<Vec<_>, _>>()
+        .context("failed to read entry in skins folder")?;
+
+    skin_list.sort_unstable();
+
+    let mut needle = OsString::from(filename);
+    needle.make_ascii_lowercase();
+
+    let idx = match skin_list.binary_search(&needle) {
+        Ok(idx) => {
+            let mut suffix = 1;
+
+            loop {
+                skin_file.push(format!("{filename}_{suffix}"));
+
+                if !skin_file.exists() {
+                    break idx + suffix + 1;
+                }
+
                 skin_file.pop();
-                file_count.inc();
+                suffix += 1;
             }
         }
-    } else {
-        warn!("failed to get filename");
-        command.error(&ctx, GENERAL_ISSUE).await?;
-        return Ok(());
+        Err(idx) => {
+            skin_file.push(filename);
+
+            idx + 1
+        }
     };
 
-    {
-        let content = "Extracting...";
-        let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
-    }
+    builder = builder.embed("Extracting...");
+    command.update(&ctx, &builder).await?;
 
     if let Err(err) = archive.extract(&skin_file) {
-        warn!("failed to extract zip archive: {err}");
-        command.error(&ctx, GENERAL_ISSUE).await?;
+        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+        let err = Report::from(err).wrap_err("failed to extract zip archive");
 
-        return Ok(());
+        return Err(err);
     }
 
-    if !(PathBuf::from(format!("{:?}/skin.ini", &skin_file.as_path())).exists()
-        || move_directory(&skin_file).await?)
-    {
+    if !(PathBuf::from(format!("{skin_file:?}/skin.ini")).exists() || move_directory(&skin_file)?) {
         let content = "There was an error getting the folder containing the skin elements! \
             Try re-exporting the skin!";
         command.error(&ctx, content).await?;
-        fs::remove_dir_all(Path::new(&skin_file)).await?;
+
+        fs::remove_dir_all(&skin_file).with_context(|| {
+            format!("failed to remove directory after failing to assure skin.ini for {skin_file:?}")
+        })?;
 
         return Ok(());
     }
 
-    let mut skin_dir = fs::read_dir(config.paths.skins())
-        .await
-        .context("Failed to read skin dir")?;
-
-    let mut counter = 0;
-    let skin_file_name = skin_file.file_name().unwrap();
-    while let Some(skin) = skin_dir
-        .next_entry()
-        .await
-        .context("failed to get entry of skin dir")?
-    {
-        let file_name = skin.file_name();
-        counter += 1;
-        if file_name.to_os_string().eq(skin_file_name) {
-            break;
-        }
-    }
-
-    let content = format!("Added skin to list at index `{counter}`");
-    let builder = MessageBuilder::new().embed(content);
+    let content = format!("Added skin to list at index `{idx}`");
+    builder = builder.embed(content);
     command.update(&ctx, &builder).await?;
 
     Ok(())
 }
 
-fn copy_all(from: PathBuf, to: PathBuf) -> IoResult<()> {
+fn move_directory(to: &PathBuf) -> Result<bool> {
+    let mut skin_folder =
+        fs::read_dir(to).with_context(|| format!("failed to read directory at {to:?}"))?;
+
+    let inner_folder = match skin_folder.next() {
+        Some(res) => res.with_context(|| format!("failed to read entry of directory at {to:?}"))?,
+        None => return Ok(false),
+    };
+
+    let from = inner_folder.path();
+
+    let mut skin_ini = to.to_owned();
+    skin_ini.push("skin.ini");
+
+    if copy_all(from, to).is_ok() && case_insensitive_exists(&skin_ini)? {
+        fs::remove_dir_all(inner_folder.path())
+            .with_context(|| format!("failed to remove directory at {:?}", inner_folder.path()))?;
+
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+fn copy_all(from: PathBuf, to: &PathBuf) -> Result<()> {
     let output_root = to;
     let input_root = from.components().count();
 
@@ -183,19 +179,26 @@ fn copy_all(from: PathBuf, to: PathBuf) -> IoResult<()> {
             output_root.join(&src)
         };
 
-        if std::fs::metadata(&dest).is_err() {
-            std::fs::create_dir_all(&dest)?;
+        if !dest.exists() {
+            fs::create_dir_all(&dest)
+                .with_context(|| format!("failed to create directory {dest:?}"))?;
         }
 
-        for entry in std::fs::read_dir(working_path)? {
-            let entry = entry?;
-            let path = entry.path();
+        let folder = fs::read_dir(&working_path)
+            .with_context(|| format!("failed to read directory at {working_path:?}"))?;
+
+        for entry in folder {
+            let path = entry
+                .with_context(|| format!("failed to read entry of directory at {working_path:?}"))?
+                .path();
 
             if path.is_dir() {
                 stack.push(path);
             } else if let Some(filename) = path.file_name() {
                 let dest_path = dest.join(filename);
-                std::fs::copy(&path, &dest_path)?;
+
+                fs::copy(&path, &dest_path)
+                    .with_context(|| format!("failed to copy {path:?} to {dest_path:?}"))?;
             }
         }
     }
@@ -203,50 +206,32 @@ fn copy_all(from: PathBuf, to: PathBuf) -> IoResult<()> {
     Ok(())
 }
 
-async fn case_insensitive_exists(path_with_file: PathBuf) -> IoResult<bool> {
+fn case_insensitive_exists(path_with_file: &PathBuf) -> Result<bool> {
     // remove skin.ini from path
-    let mut ancestors = path_with_file.ancestors();
-    ancestors.next();
-
-    let path = if let Some(path) = ancestors.next() {
-        path
-    } else {
-        return Ok(false);
+    let path = match path_with_file.ancestors().nth(1) {
+        Some(path) => path,
+        None => return Ok(false),
     };
 
-    let file_name_as_lower = if let Some(file_name) = path_with_file.file_name() {
-        file_name.to_ascii_lowercase()
-    } else {
-        return Ok(false);
+    let file_name_as_lower = match path_with_file.file_name() {
+        Some(name) => name.to_ascii_lowercase(),
+        None => return Ok(false),
     };
 
-    let mut dir = fs::read_dir(path).await?;
+    let folder =
+        fs::read_dir(&path).with_context(|| format!("failed to read directory at {path:?}"))?;
 
-    while let Some(item) = dir.next_entry().await? {
-        if item.file_name().to_ascii_lowercase() == file_name_as_lower {
+    for res in folder {
+        let mut entry_as_lower = res
+            .with_context(|| format!("failed to read entry of directory at {path:?}"))?
+            .file_name();
+
+        entry_as_lower.make_ascii_lowercase();
+
+        if file_name_as_lower == entry_as_lower {
             return Ok(true);
         }
     }
 
     Ok(false)
-}
-
-async fn move_directory(to: &PathBuf) -> IoResult<bool> {
-    let mut skin_folder = fs::read_dir(&to).await?;
-
-    let skin_folder_elements = if let Some(skin_folder_elements) = skin_folder.next_entry().await? {
-        skin_folder_elements
-    } else {
-        return Ok(false);
-    };
-
-    let from = skin_folder_elements.path();
-    let mut skin_ini = to.clone();
-    skin_ini.push("skin.ini");
-    if copy_all(from, to.clone()).is_ok() && case_insensitive_exists(skin_ini).await? {
-        fs::remove_dir_all(skin_folder_elements.path()).await?;
-        Ok(true)
-    } else {
-        Ok(false)
-    }
 }

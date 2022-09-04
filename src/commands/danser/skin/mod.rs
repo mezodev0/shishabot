@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use command_macros::SlashCommand;
 use eyre::Result;
-use std::sync::Arc;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
 
@@ -15,7 +16,7 @@ mod add;
 mod remove;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "skin", dm_permission = true)]
+#[command(name = "skin")]
 #[flags(ONLY_OWNER, SKIP_DEFER)]
 /// Skinlist configuration
 pub enum Skin {
@@ -39,7 +40,7 @@ pub struct SkinAdd {
 pub struct SkinRemove {
     /// Index of the skin that you want to remove
     #[command(min_value = 0, max_value = 65_535)]
-    index: u64,
+    index: usize,
 }
 
 pub async fn slash_skin(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

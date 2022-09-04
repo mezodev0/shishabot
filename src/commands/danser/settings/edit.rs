@@ -201,7 +201,7 @@ fn modify_settings(settings: &mut DanserSettings, args: SettingsEdit) -> ModifyR
         };
 
         // Sort
-        skin_names.sort_unstable();
+        skin_names.sort_unstable_by_key(|name| name.to_ascii_lowercase());
 
         // Get name of given index
         let skin_name = match skin_names.get(skin - 1) {
