@@ -149,11 +149,11 @@ impl ReplayQueue {
             match command.output().await {
                 Ok(output) => {
                     if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
-                        debug!("stdout: {}", stdout);
+                        trace!("danser stdout: {stdout}");
                     }
 
                     if let Ok(stderr) = std::str::from_utf8(&output.stderr) {
-                        debug!("stderr: {}", stderr);
+                        warn!("danser stderr: {stderr}");
                     }
                 }
                 Err(err) => {
@@ -214,51 +214,37 @@ impl ReplayQueue {
                 }
             };
 
-            let mut file_path = config.paths.replays();
-            file_path.push(format!("{filename}.mp4"));
+            let mut file_path = config.paths.danser().to_owned();
+            file_path.push(format!("videos/{filename}.mp4"));
+            let author = user.to_string();
 
             info!("Started upload to shisha.mezo.xyz");
             ctx.replay_queue.set_status(ReplayStatus::Uploading).await;
 
-            let link = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+            let upload_fut = ctx.client().upload_video(&video_title, &author, file_path);
 
-            // TODO
-            // let link = match uploader
-            //     .upload_video(video_title, replay_user, &filepath)
-            //     .await
-            // {
-            //     Ok(response) => {
-            //         if response.error == 1 {
-            //             warn!("failed to upload: {}", response.text);
-            //             send_error_message(
-            //                 &http,
-            //                 input_channel,
-            //                 replay_user,
-            //                 format!("failed to upload: `{}`", response.text).as_str(),
-            //             )
-            //             .await;
+            let link = match upload_fut.await {
+                Ok(res) if res.error == 1 => {
+                    let err = format!("failed to upload: `{}`", res.text);
+                    warn!("{err}");
 
-            //             queue.reset_peek().await;
-            //             continue;
-            //         } else {
-            //             response.text
-            //         }
-            //     }
-            //     Err(why) => {
-            //         warn!("{:?}", why.context("failed to upload file"));
+                    let _ = input_channel.error(&ctx, err).await;
 
-            //         send_error_message(
-            //             &http,
-            //             input_channel,
-            //             replay_user,
-            //             "failed to upload to custom uploader",
-            //         )
-            //         .await;
+                    ctx.replay_queue.reset_peek().await;
+                    continue;
+                }
+                Ok(res) => res.text,
+                Err(err) => {
+                    let err = err.wrap_err("failed to upload file");
+                    warn!("{err:?}");
 
-            //         queue.reset_peek().await;
-            //         continue;
-            //     }
-            // };
+                    let content = "Failed to upload file";
+                    let _ = input_channel.error(&ctx, content).await;
+
+                    ctx.replay_queue.reset_peek().await;
+                    continue;
+                }
+            };
 
             info!("Finished upload to shisha.mezo.xyz");
 

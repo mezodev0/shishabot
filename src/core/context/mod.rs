@@ -136,10 +136,6 @@ async fn create_missing_folders_and_files(config: &BotConfig) -> Result<()> {
         .await
         .context("failed to create Downloads folder")?;
 
-    fs::create_dir_all(config.paths.replays())
-        .await
-        .context("failed to create Replays folder")?;
-
     fs::create_dir_all(config.paths.skins())
         .await
         .context("failed to create Skins folder")?;

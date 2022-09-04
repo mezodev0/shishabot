@@ -15,6 +15,7 @@ pub struct BotConfig {
     pub paths: Paths,
     pub owners: Vec<Id<UserMarker>>,
     pub dev_guild: Id<GuildMarker>,
+    pub upload_url: String,
 }
 
 #[derive(Debug)]
@@ -55,13 +56,6 @@ impl Paths {
 
         path
     }
-
-    pub fn replays(&self) -> PathBuf {
-        let mut path = self.folders.clone();
-        path.push("Replays");
-
-        path
-    }
 }
 
 #[derive(Debug)]
@@ -69,6 +63,7 @@ pub struct Tokens {
     pub discord: String,
     pub osu_client_id: u64,
     pub osu_client_secret: String,
+    pub upload_secret: String,
 }
 
 impl BotConfig {
@@ -84,6 +79,7 @@ impl BotConfig {
                 discord: env_var("DISCORD_TOKEN")?,
                 osu_client_id: env_var("OSU_CLIENT_ID")?,
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
+                upload_secret: env_var("UPLOAD_SECRET")?,
             },
             paths: Paths {
                 danser: env_var("DANSER_PATH")?,
@@ -91,6 +87,7 @@ impl BotConfig {
             },
             owners: env_var("OWNERS_USER_ID")?,
             dev_guild: env_var("DEV_GUILD_ID")?,
+            upload_url: env_var("UPLOAD_URL")?,
         };
 
         if CONFIG.set(config).is_err() {
