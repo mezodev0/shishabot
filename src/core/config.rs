@@ -43,6 +43,13 @@ impl Paths {
         path
     }
 
+    pub fn replays(&self) -> PathBuf {
+        let mut path = self.folders.clone();
+        path.push("Replays");
+
+        path
+    }
+
     pub fn skins(&self) -> PathBuf {
         let mut path = self.folders.clone();
         path.push("Skins");
