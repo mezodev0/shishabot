@@ -2,10 +2,7 @@ use std::{ffi::OsStr, fmt::Display, io::Write, path::Path};
 
 use eyre::{Context as _, Result};
 use rand::{distributions::Alphanumeric, Rng};
-use tokio::{
-    fs::{self, File},
-    io,
-};
+use tokio::{fs::File, io};
 
 const BOUNDARY_LEN: usize = 16;
 
@@ -154,7 +151,7 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn non_mp4() {
-        let form = Multipart::new()
+        let _ = Multipart::new()
             .push_file("cargo", "./Cargo.toml")
             .await
             .unwrap();

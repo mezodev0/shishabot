@@ -1,15 +1,6 @@
-use std::{
-    borrow::Borrow,
-    ffi::OsString,
-    fmt::{Display, Formatter, Result as FmtResult},
-    fs,
-    io::Cursor,
-    path::{self, Path, PathBuf},
-    sync::Arc,
-};
+use std::{ffi::OsString, fs, io::Cursor, path::PathBuf, sync::Arc};
 
 use eyre::{Context, Report, Result};
-use twilight_model::channel::Message;
 use zip::ZipArchive;
 
 use crate::{

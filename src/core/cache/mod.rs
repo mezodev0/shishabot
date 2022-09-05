@@ -95,6 +95,7 @@ impl Cache {
         Ok(f(&member))
     }
 
+    #[allow(unused)]
     pub fn members<F, T, C>(&self, guild: Id<GuildMarker>, f: F) -> C
     where
         C: Default + FromIterator<T>,
@@ -117,6 +118,7 @@ impl Cache {
         Ok(f(&role))
     }
 
+    #[allow(unused)]
     pub fn user<F, T>(&self, user: Id<UserMarker>, f: F) -> Result<T>
     where
         F: FnOnce(&User) -> T,

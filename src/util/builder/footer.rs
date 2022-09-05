@@ -12,6 +12,7 @@ impl FooterBuilder {
         })
     }
 
+    #[allow(unused)]
     pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
         let icon_url = icon_url.into();
         self.0.icon_url = Some(icon_url);

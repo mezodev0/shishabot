@@ -13,7 +13,6 @@ mod context;
 mod events;
 mod replay_queue;
 
-pub mod buckets;
 pub mod commands;
 pub mod logging;
 pub mod settings;

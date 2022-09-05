@@ -9,7 +9,7 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
         Some(attachment) => {
             if matches!(attachment.filename.split('.').last(), Some("osr")) {
                 let content = "Hey! Looks like you tried to send a replay\nPlease use **/render** as we have fully migrated to slash commands.";
-                msg.error(&ctx, content).await;
+                let _ = msg.error(&ctx, content).await;
             }
         }
         None => return,

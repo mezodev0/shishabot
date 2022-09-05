@@ -34,6 +34,7 @@ mod view;
 #[derive(CreateCommand, SlashCommand)]
 #[command(name = "settings")]
 #[flags(SKIP_DEFER)]
+#[allow(unused)]
 /// Adjust your danser settings
 pub enum Settings {
     #[command(name = "copy")]

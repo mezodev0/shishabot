@@ -6,7 +6,7 @@ use twilight_model::{
     },
 };
 
-use crate::core::{buckets::BucketName, Context};
+use crate::core::Context;
 
 /// Is authority -> None
 /// No authority -> Some(message to user)
@@ -26,14 +26,4 @@ pub async fn check_authority(
 
         Some(content)
     }
-}
-
-pub async fn check_ratelimit(
-    ctx: &Context,
-    user: Id<UserMarker>,
-    bucket: BucketName,
-) -> Option<i64> {
-    let ratelimit = ctx.buckets.get(bucket).lock().unwrap().take(user.get());
-
-    (ratelimit > 0).then(|| ratelimit)
 }

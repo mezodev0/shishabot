@@ -5,9 +5,7 @@ use twilight_model::guild::Permissions;
 
 use crate::{
     core::Context,
-    util::{
-        builder::MessageBuilder, interaction::InteractionCommand, Authored, InteractionCommandExt,
-    },
+    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
 };
 
 use super::{InputAction, SetupInput};
@@ -61,7 +59,7 @@ pub async fn input(ctx: Arc<Context>, command: InteractionCommand, args: SetupIn
         }
     } else {
         let content = "You do not have the required permissions to perform this action!";
-        command.error_callback(&ctx, content, true).await;
+        command.error_callback(&ctx, content, true).await?;
     }
 
     Ok(())

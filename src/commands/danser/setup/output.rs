@@ -5,9 +5,7 @@ use twilight_model::guild::Permissions;
 
 use crate::{
     core::Context,
-    util::{
-        builder::MessageBuilder, interaction::InteractionCommand, Authored, InteractionCommandExt,
-    },
+    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
 };
 
 use super::SetupOutput;
@@ -35,7 +33,7 @@ pub async fn output(
 
         let content = format!("Successfully specified <#{channel}> as output");
         let builder = MessageBuilder::new().embed(content);
-        command.callback(&ctx, builder, false).await;
+        command.callback(&ctx, builder, false).await?;
     } else {
         let content = "You do not have the required permissions to perform this action!";
         command.error_callback(&ctx, content, true).await?;

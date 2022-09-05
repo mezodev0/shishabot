@@ -5,7 +5,7 @@ use eyre::{Context as _, Result};
 use crate::{
     core::{
         commands::{
-            checks::{check_authority, check_ratelimit},
+            checks::check_authority,
             slash::{SlashCommand, SlashCommands},
         },
         events::{EventLocation, ProcessResult},
@@ -67,7 +67,6 @@ async fn pre_process_command(
     command: &InteractionCommand,
     slash: &SlashCommand,
 ) -> Result<Option<ProcessResult>> {
-    let guild_id = command.guild_id;
     let user_id = command.user_id()?;
 
     // Only for owners?
@@ -76,18 +75,6 @@ async fn pre_process_command(
         command.error_callback(ctx, content, false).await?;
 
         return Ok(Some(ProcessResult::NoOwner));
-    }
-
-    // Ratelimited?
-    if let Some(bucket) = slash.bucket {
-        if let Some(cooldown) = check_ratelimit(ctx, user_id, bucket).await {
-            trace!("Ratelimiting user {user_id} on bucket `{bucket:?}` for {cooldown} seconds");
-
-            let content = format!("Command on cooldown, try again in {cooldown} seconds");
-            command.error_callback(ctx, content, false).await?;
-
-            return Ok(Some(ProcessResult::Ratelimited(bucket)));
-        }
     }
 
     // Only for authorities?

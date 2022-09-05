@@ -1,7 +1,7 @@
-use std::{ffi::OsStr, hash::Hash, io::Write as _, path::Path};
+use std::{hash::Hash, path::Path};
 
 use bytes::Bytes;
-use eyre::{Context as _, ContextCompat as _, Result};
+use eyre::{Context as _, Result};
 use http::Response;
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
@@ -10,12 +10,8 @@ use hyper::{
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
-use serde::{Deserialize, Serialize};
-use tokio::{
-    fs::{self, File},
-    io::AsyncReadExt,
-    time::Duration,
-};
+use serde::Deserialize;
+use tokio::time::Duration;
 use twilight_model::{
     channel::Attachment,
     id::{marker::UserMarker, Id},
@@ -25,12 +21,9 @@ use crate::core::BotConfig;
 
 use self::multipart::Multipart;
 
-mod deserialize;
 mod multipart;
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
-
-const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]

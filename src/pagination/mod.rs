@@ -33,7 +33,7 @@ pub enum PaginationKind {
 }
 
 impl PaginationKind {
-    async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
+    async fn build_page(&mut self, _ctx: &Context, pages: &Pages) -> Result<Embed> {
         match self {
             Self::SkinList(kind) => Ok(kind.build_page(pages)),
         }
@@ -189,6 +189,7 @@ impl PaginationBuilder {
         Pagination::start(ctx, command, self).await
     }
 
+    #[allow(unused)]
     /// Add an attachment to the initial message which
     /// will stick throughout all pages.
     pub fn attachment(mut self, name: impl Into<String>, bytes: Vec<u8>) -> Self {
@@ -197,6 +198,7 @@ impl PaginationBuilder {
         self
     }
 
+    #[allow(unused)]
     /// Add content to the initial message which
     /// will stick throughout all pages.
     pub fn content(mut self, content: impl Into<String>) -> Self {
@@ -205,6 +207,7 @@ impl PaginationBuilder {
         self
     }
 
+    #[allow(unused)]
     /// By default, the initial message will be sent by callback.
     /// This only works if the invoke originates either from a message,
     /// or from an interaction that was **not** deferred.
@@ -218,6 +221,7 @@ impl PaginationBuilder {
         self
     }
 
+    #[allow(unused)]
     /// By default, the page-update message will be sent by callback.
     /// This only works if the page generation is quick enough i.e. <300ms.
     ///
@@ -225,20 +229,6 @@ impl PaginationBuilder {
     /// and then after the page generation updated.
     pub fn defer_components(mut self) -> Self {
         self.defer_components = true;
-
-        self
-    }
-
-    /// "Compact", "Medium", and "Full" button components
-    pub fn profile_components(mut self) -> Self {
-        self.component_kind = ComponentKind::Profile;
-
-        self
-    }
-
-    /// "Jump start", "Step back", and "Step" button components
-    pub fn map_search_components(mut self) -> Self {
-        self.component_kind = ComponentKind::MapSearch;
 
         self
     }
@@ -274,8 +264,6 @@ impl Pages {
     fn components(&self, kind: ComponentKind) -> Vec<Component> {
         match kind {
             ComponentKind::Default => self.default_components(),
-            ComponentKind::MapSearch => self.map_search_components(),
-            ComponentKind::Profile => self.profile_components(),
         }
     }
 
@@ -349,89 +337,9 @@ impl Pages {
 
         vec![Component::ActionRow(ActionRow { components })]
     }
-
-    fn profile_components(&self) -> Vec<Component> {
-        let compact = Button {
-            custom_id: Some("profile_compact".to_owned()),
-            disabled: self.index == 0,
-            emoji: None,
-            label: Some("Compact".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let medium = Button {
-            custom_id: Some("profile_medium".to_owned()),
-            disabled: self.index == 1,
-            emoji: None,
-            label: Some("Medium".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let full = Button {
-            custom_id: Some("profile_full".to_owned()),
-            disabled: self.index == 2,
-            emoji: None,
-            label: Some("Full".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let components = vec![
-            Component::Button(compact),
-            Component::Button(medium),
-            Component::Button(full),
-        ];
-
-        vec![Component::ActionRow(ActionRow { components })]
-    }
-
-    fn map_search_components(&self) -> Vec<Component> {
-        if self.last_index == 0 {
-            return Vec::new();
-        }
-
-        let jump_start = Button {
-            custom_id: Some("pagination_start".to_owned()),
-            disabled: self.index == 0,
-            emoji: None, // JumpStart
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
-
-        let single_step_back = Button {
-            custom_id: Some("pagination_back".to_owned()),
-            disabled: self.index == 0,
-            emoji: None, // SingleStepBack
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
-
-        let single_step = Button {
-            custom_id: Some("pagination_step".to_owned()),
-            disabled: self.index == self.last_index,
-            emoji: None, // SingleStep
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
-
-        let components = vec![
-            Component::Button(jump_start),
-            Component::Button(single_step_back),
-            Component::Button(single_step),
-        ];
-
-        vec![Component::ActionRow(ActionRow { components })]
-    }
 }
 
 #[derive(Copy, Clone)]
 enum ComponentKind {
     Default,
-    MapSearch,
-    Profile,
 }

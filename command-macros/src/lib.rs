@@ -2,7 +2,6 @@ use pagination::AttributeList;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
-mod bucket;
 mod flags;
 mod has_mods;
 mod has_name;

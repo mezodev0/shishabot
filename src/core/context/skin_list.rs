@@ -1,7 +1,6 @@
 use std::{ffi::OsString, fs};
 
 use eyre::{Context as _, Result};
-use time::OffsetDateTime;
 
 use crate::core::BotConfig;
 

@@ -1,4 +1,4 @@
-use std::{process::Output, sync::Arc};
+use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use eyre::Result;

@@ -27,7 +27,6 @@ rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features
 rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0" }
-serde_urlencoded = { version = "0.7" }
 smallstr = { version = "0.2", features = ["serde"] }
 smallvec = { version = "1.0", features = ["serde"] }
 time = { version = "0.3", features = ["macros", "parsing"] }

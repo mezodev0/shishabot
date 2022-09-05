@@ -1,7 +1,6 @@
 use std::{fs::File, io::ErrorKind, sync::Arc};
 
 use eyre::{Report, Result};
-use twilight_interactions::command::ResolvedUser;
 
 use crate::{
     core::{BotConfig, Context},

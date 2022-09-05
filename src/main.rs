@@ -1,6 +1,4 @@
-// TODO: uncomment
-// #![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
-#![allow(unused)]
+#![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused)]
 
 #[macro_use]
 extern crate eyre;

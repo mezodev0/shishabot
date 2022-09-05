@@ -42,6 +42,7 @@ impl EmbedBuilder {
         self.0
     }
 
+    #[allow(unused)]
     pub fn author(mut self, author: impl Into<EmbedAuthor>) -> Self {
         self.0.author = Some(author.into());
 
@@ -73,6 +74,7 @@ impl EmbedBuilder {
         self
     }
 
+    #[allow(unused)]
     pub fn image(mut self, image: impl Into<String>) -> Self {
         let url = image.into();
 
@@ -102,6 +104,7 @@ impl EmbedBuilder {
         self
     }
 
+    #[allow(unused)]
     pub fn thumbnail(mut self, thumbnail: impl Into<String>) -> Self {
         let url = thumbnail.into();
 
@@ -119,6 +122,7 @@ impl EmbedBuilder {
         self
     }
 
+    #[allow(unused)]
     pub fn url(mut self, url: impl Into<String>) -> Self {
         self.0.url = Some(url.into());
 

@@ -1,24 +1,18 @@
 use std::{
     convert::TryInto,
-    fs::{self, File, OpenOptions},
+    fs::{File, OpenOptions},
     path::PathBuf,
     sync::Arc,
 };
 
 use eyre::{Context as _, ContextCompat, Report, Result};
-use twilight_interactions::command::AutocompleteValue;
-use twilight_model::{
-    application::command::CommandOptionChoice,
-    channel::embed::{Embed, EmbedField},
-    user::User,
-};
+use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
     core::{settings::DanserSettings, BotConfig, Context},
     util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        interaction::InteractionCommand,
-        levenshtein_distance, Authored, CowUtils, InteractionCommandExt,
+        builder::MessageBuilder, interaction::InteractionCommand, levenshtein_distance, Authored,
+        CowUtils, InteractionCommandExt,
     },
 };
 

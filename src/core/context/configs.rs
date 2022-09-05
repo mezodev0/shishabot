@@ -1,10 +1,7 @@
-use std::{fs::OpenOptions, io::Write};
+use std::fs::OpenOptions;
 
 use eyre::{Context as _, Result};
-use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker},
-    Id,
-};
+use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{
     core::{settings::Server, BotConfig},

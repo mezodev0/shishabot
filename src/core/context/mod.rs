@@ -20,10 +20,7 @@ use crate::{
     util::hasher::SimpleBuildHasher,
 };
 
-use super::{
-    buckets::Buckets, cluster::build_cluster, settings::RootSettings, stats::BotStats, Cache,
-    ReplayQueue,
-};
+use super::{cluster::build_cluster, settings::RootSettings, stats::BotStats, Cache, ReplayQueue};
 
 use self::skin_list::SkinList;
 
@@ -31,7 +28,6 @@ mod configs;
 mod skin_list;
 
 pub struct Context {
-    pub buckets: Buckets,
     pub cache: Cache,
     pub cluster: Cluster,
     pub http: Arc<Client>,
@@ -126,7 +122,6 @@ impl Context {
             paginations: Arc::new(paginations),
             standby: Standby::new(),
             stats,
-            buckets: Buckets::new(),
             replay_queue: ReplayQueue::new(),
             skin_list: Arc::new(Mutex::default()),
         };

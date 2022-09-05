@@ -1,11 +1,10 @@
+use std::{fmt::Write, sync::Arc};
+
 use eyre::Result;
-use std::{collections::HashSet, fmt::Write, sync::Arc};
 
 use crate::{
     core::Context,
-    util::{
-        builder::MessageBuilder, interaction::InteractionCommand, Authored, InteractionCommandExt,
-    },
+    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
 };
 
 pub async fn view(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
@@ -35,7 +34,7 @@ pub async fn view(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> 
 
     let content = format!("Input channels: {input_channels}\nOutput channel: {output_channel}");
     let builder = MessageBuilder::new().embed(content);
-    command.callback(&ctx, builder, false).await;
+    command.callback(&ctx, builder, false).await?;
 
     Ok(())
 }

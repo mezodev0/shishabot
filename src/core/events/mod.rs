@@ -15,7 +15,7 @@ use crate::util::Authored;
 
 use self::{interaction::handle_interaction, message::handle_message};
 
-use super::{buckets::BucketName, Context};
+use super::Context;
 
 mod interaction;
 mod message;
@@ -23,20 +23,8 @@ mod message;
 #[derive(Debug)]
 enum ProcessResult {
     Success,
-    NoDM,
-    Ratelimited(BucketName),
     NoOwner,
     NoAuthority,
-}
-
-fn log_command_(ctx: &Context, cmd: &dyn Authored, name: &str) {
-    let username = cmd
-        .user()
-        .map(|u| u.name.as_str())
-        .unwrap_or("<unknown user>");
-
-    let location = EventLocation { ctx, cmd };
-    info!("[{location}] {username} invoked `{name}`");
 }
 
 struct EventLocation<'a> {
