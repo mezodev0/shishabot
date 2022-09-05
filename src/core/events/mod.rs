@@ -29,22 +29,28 @@ enum ProcessResult {
     NoAuthority,
 }
 
-fn log_command(ctx: &Context, cmd: &dyn Authored, name: &str) {
+fn log_command_(ctx: &Context, cmd: &dyn Authored, name: &str) {
     let username = cmd
         .user()
         .map(|u| u.name.as_str())
         .unwrap_or("<unknown user>");
 
-    let location = CommandLocation { ctx, cmd };
+    let location = EventLocation { ctx, cmd };
     info!("[{location}] {username} invoked `{name}`");
 }
 
-struct CommandLocation<'a> {
+struct EventLocation<'a> {
     ctx: &'a Context,
     cmd: &'a dyn Authored,
 }
 
-impl Display for CommandLocation<'_> {
+impl<'a> EventLocation<'a> {
+    fn new(ctx: &'a Context, cmd: &'a dyn Authored) -> Self {
+        Self { ctx, cmd }
+    }
+}
+
+impl Display for EventLocation<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let guild = match self.cmd.guild_id() {
             Some(id) => id,

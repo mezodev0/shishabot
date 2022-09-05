@@ -4,13 +4,22 @@ use eyre::Context as _;
 
 use crate::{
     commands::danser::slash_settings,
-    core::{events::log_command, Context},
-    util::interaction::InteractionCommand,
+    core::{events::EventLocation, Context},
+    util::{interaction::InteractionCommand, Authored},
 };
 
 pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &command, &name);
+
+    {
+        let username = command
+            .user()
+            .map(|u| u.name.as_str())
+            .unwrap_or("<unknown user>");
+
+        let location = EventLocation::new(&ctx, &command);
+        info!("[{location}] {username} autocompleted `{name}`");
+    }
 
     let res = match name.as_str() {
         "settings" => slash_settings(ctx, command).await,

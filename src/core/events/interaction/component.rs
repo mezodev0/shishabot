@@ -4,14 +4,23 @@ use eyre::Context as _;
 
 use crate::{
     commands::help::{handle_help_basecommand, handle_help_subcommand},
-    core::{events::log_command, Context},
+    core::{events::EventLocation, Context},
     pagination::components::*,
-    util::interaction::InteractionComponent,
+    util::{interaction::InteractionComponent, Authored},
 };
 
 pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionComponent) {
     let name = mem::take(&mut component.data.custom_id);
-    log_command(&ctx, &component, &name);
+
+    {
+        let username = component
+            .user()
+            .map(|u| u.name.as_str())
+            .unwrap_or("<unknown user>");
+
+        let location = EventLocation::new(&ctx, &component);
+        info!("[{location}] {username} invoked component `{name}`");
+    }
 
     let res = match name.as_str() {
         "help_basecommand" => handle_help_basecommand(&ctx, component).await,
