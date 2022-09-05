@@ -16,6 +16,7 @@ use crate::{
 
 #[derive(CreateCommand, CommandModel, SlashCommand)]
 #[command(name = "render")]
+#[flags(SKIP_DEFER)]
 /// Render a replay file and upload it
 pub struct Render {
     #[command(name = "replay")]
@@ -38,31 +39,48 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
 
     if !matches!(attachment.filename.split('.').last(), Some("osr")) {
         let content = "The attachment must be a .osr file!";
-        command.error(&ctx, content).await?;
+        command.error_callback(&ctx, content, false).await?;
 
         return Ok(());
     }
 
     let output_channel = match command.guild_id {
-        Some(guild) => match ctx.guild_settings(guild, |server| server.output_channel) {
-            Some(Some(output_channel)) => output_channel,
-            Some(None) => {
-                let content = "Looks like this server has not setup their output channel yet.\n\
-                    Be sure to use `/setup` first.";
-                command.error(&ctx, content).await?;
+        Some(guild) => {
+            // Returns the output channel if:
+            // - Settings of the server are stored
+            // - The server's input channels include the current channel
+            // - The server's output channel has been configured
+            let check = ctx.guild_settings(guild, |server| {
+                server
+                    .input_channels
+                    .contains(&command.channel_id)
+                    .then_some(server.output_channel)
+                    .ok_or(())
+            });
 
-                return Ok(());
-            }
-            None => {
-                let content = "Looks like this server has not setup their output channel yet.\n\
-                    Be sure to use `/setup` first.";
-                command.error(&ctx, content).await?;
+            match check {
+                Some(Ok(Some(output_channel))) => output_channel,
+                Some(Err(_)) => {
+                    let content = "This channel is not setup as input channel.\n\
+                        Check out `/setup` for more info.";
+                    command.error_callback(&ctx, content, true).await?;
 
-                return Ok(());
+                    return Ok(());
+                }
+                Some(Ok(None)) | None => {
+                    let content =
+                        "Looks like this server has not setup their output channel yet.\n\
+                        Be sure to use `/setup` first.";
+                    command.error_callback(&ctx, content, false).await?;
+
+                    return Ok(());
+                }
             }
-        },
+        }
         None => command.channel_id,
     };
+
+    command.defer(&ctx, false).await?;
 
     let bytes = match ctx.client().get_discord_attachment(&attachment).await {
         Ok(bytes) => bytes,
