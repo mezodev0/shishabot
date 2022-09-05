@@ -1,4 +1,10 @@
-use std::{ffi::OsString, fs, io::Cursor, path::PathBuf, sync::Arc};
+use std::{
+    ffi::OsString,
+    fs,
+    io::Cursor,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use eyre::{Context, Report, Result};
 use zip::ZipArchive;
@@ -37,9 +43,8 @@ pub async fn add(
         Ok(bytes) => bytes,
         Err(err) => {
             let _ = command.error(&ctx, "Failed to download attachment").await;
-            let err = Report::from(err).wrap_err("failed to download skin attachment");
 
-            return Err(err);
+            return Err(err.wrap_err("failed to download skin attachment"));
         }
     };
 
@@ -152,6 +157,7 @@ fn move_directory(to: &PathBuf) -> Result<bool> {
     }
 }
 
+#[allow(clippy::ptr_arg)]
 fn copy_all(from: PathBuf, to: &PathBuf) -> Result<()> {
     let output_root = to;
     let input_root = from.components().count();
@@ -196,7 +202,9 @@ fn copy_all(from: PathBuf, to: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn case_insensitive_exists(path_with_file: &PathBuf) -> Result<bool> {
+fn case_insensitive_exists(path_with_file: impl AsRef<Path>) -> Result<bool> {
+    let path_with_file = path_with_file.as_ref();
+
     // remove skin.ini from path
     let path = match path_with_file.ancestors().nth(1) {
         Some(path) => path,

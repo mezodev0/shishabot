@@ -94,11 +94,10 @@ pub async fn edit(
                 }
             },
             Err(err) => {
-                let content = "";
+                let content = "Failed to download the provided attachment";
                 let _ = command.error_callback(&ctx, content, false).await;
-                let err = Report::from(err).wrap_err("failed to download settings attachment");
 
-                return Err(err);
+                return Err(err.wrap_err("failed to download settings attachment"));
             }
         }
     } else {
@@ -173,19 +172,17 @@ pub async fn edit(
             Ok(())
         }
         ModifyResult::SkinNotFound => {
-            let content = format!(
-                "No skin with the specified name is stored.\n\
-                Check `/skinlist` to see available skins."
-            );
+            let content = "No skin with the specified name is stored.\n\
+                Check `/skinlist` to see available skins.";
             command.error_callback(&ctx, content, false).await?;
 
-            return Ok(());
+            Ok(())
         }
         ModifyResult::Err(err) => {
             let content = "Something went wrong while modifying the settings";
             let _ = command.error_callback(&ctx, content, false).await;
 
-            return Err(err.wrap_err("failed to modify settings"));
+            Err(err.wrap_err("failed to modify settings"))
         }
     }
 }
