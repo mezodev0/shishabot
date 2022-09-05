@@ -20,7 +20,7 @@ impl Context {
     where
         F: FnOnce(&mut Server) -> O,
     {
-        let (output, entry_was_present) = {
+        let output = {
             let guard = self.root_settings.servers.guard();
 
             let mut server = self
@@ -32,19 +32,13 @@ impl Context {
 
             let output = f(&mut server);
 
-            let entry_was_present = self
-                .root_settings
-                .servers
-                .insert(guild_id, server, &guard)
-                .is_some();
+            self.root_settings.servers.insert(guild_id, server, &guard);
 
-            (output, entry_was_present)
+            output
         };
 
-        if entry_was_present {
-            self.store_guild_settings()
-                .context("failed to upsert server settings")?;
-        }
+        self.store_guild_settings()
+            .context("failed to upsert server settings")?;
 
         Ok(output)
     }
