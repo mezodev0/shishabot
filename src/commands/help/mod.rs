@@ -4,9 +4,10 @@ use twilight_interactions::command::{
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
     channel::embed::EmbedField,
+    id::{marker::UserMarker, Id},
 };
 
-use crate::core::commands::slash::SlashCommands;
+use crate::core::{commands::slash::SlashCommands, BotConfig};
 
 pub use self::{
     components::{handle_help_basecommand, handle_help_subcommand},
@@ -16,8 +17,8 @@ pub use self::{
 mod components;
 mod interaction;
 
-fn generate_menus(options: &[CommandOptionExt]) -> Vec<Component> {
-    let base_options: Vec<_> = SlashCommands::get().collect(|c| {
+fn generate_menus(user: Id<UserMarker>, options: &[CommandOptionExt]) -> Vec<Component> {
+    let mut base_options: Vec<_> = SlashCommands::get().collect(|c| {
         let ApplicationCommandData {
             name, description, ..
         } = (c.create)();
@@ -30,6 +31,13 @@ fn generate_menus(options: &[CommandOptionExt]) -> Vec<Component> {
             value: name,
         }
     });
+
+    if !BotConfig::get().owners.contains(&user) {
+        if let Some(idx) = base_options.iter().position(|opt| opt.label == "owner") {
+            base_options[idx..].rotate_left(1);
+            base_options.truncate(base_options.len() - 1);
+        }
+    }
 
     let select_menu = SelectMenu {
         custom_id: "help_basecommand".to_owned(),

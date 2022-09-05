@@ -13,7 +13,7 @@ use crate::{
         datetime::how_long_ago_dynamic,
         interaction::InteractionCommand,
         numbers::with_comma_int,
-        InteractionCommandExt,
+        Authored, InteractionCommandExt,
     },
 };
 
@@ -31,10 +31,10 @@ pub async fn slash_help(ctx: Arc<Context>, command: InteractionCommand) -> Resul
         .current_user(|user| user.id)
         .expect("missing CurrentUser in cache");
 
-    let mention = format!("<@{id}>");
-
-    let description =
-        format!("{mention} is a discord bot written by [mezo](https://osu.ppy.sh/users/13313647) which allows you render osu! replays and upload them");
+    let description = format!(
+        "<@{id}> is a discord bot written by [mezo](https://osu.ppy.sh/users/13313647) \
+        which allows you render osu! replays and upload them"
+    );
 
     let view_replays = EmbedField {
         inline: false,
@@ -80,7 +80,7 @@ pub async fn slash_help(ctx: Arc<Context>, command: InteractionCommand) -> Resul
 
     let embed = EmbedBuilder::new().description(description).fields(fields);
 
-    let menus = generate_menus(&[]);
+    let menus = generate_menus(command.user_id()?, &[]);
 
     let builder = MessageBuilder::new().embed(embed).components(menus);
 

@@ -13,7 +13,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         interaction::InteractionComponent,
-        ComponentExt,
+        Authored, ComponentExt,
     },
 };
 
@@ -165,7 +165,7 @@ pub async fn handle_help_basecommand(ctx: &Context, component: InteractionCompon
         embed = embed.footer(footer);
     }
 
-    let menus = generate_menus(&options);
+    let menus = generate_menus(component.user_id()?, &options);
     let builder = MessageBuilder::new().embed(embed).components(menus);
 
     component.callback(ctx, builder).await?;
@@ -203,7 +203,7 @@ pub async fn handle_help_subcommand(
         embed_builder = embed_builder.footer(FooterBuilder::new(AUTHORITY_STATUS));
     }
 
-    let components = generate_menus(&command.options);
+    let components = generate_menus(component.user_id()?, &command.options);
 
     let builder = MessageBuilder::new()
         .embed(embed_builder)
