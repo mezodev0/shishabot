@@ -91,7 +91,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
             info!("Gateway requested shard {shard_id} to reconnect")
         }
         Event::GuildCreate(_) | Event::GuildDelete(_) => {
-            let count = ctx.cache.stats().guilds();
+            let stats = ctx.cache.stats();
+            let count = stats.guilds() + stats.unavailable_guilds();
 
             let activity = MinimalActivity {
                 kind: ActivityType::Watching,
