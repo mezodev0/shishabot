@@ -27,10 +27,14 @@ impl SkinList {
 
         skins.sort_unstable_by_key(|name| name.to_ascii_lowercase());
 
+        info!("Repopulated skin list cache");
+
         Ok(self.skins.insert(skins))
     }
 
     pub fn clear(&mut self) {
         self.skins = None;
+
+        info!("Cleared skin list cache");
     }
 }

@@ -1,4 +1,5 @@
 use std::{
+    convert::TryFrom,
     fmt::{Display, Formatter, Result as FmtResult},
     path::PathBuf,
     sync::Arc,
@@ -7,7 +8,7 @@ use std::{
 use command_macros::SlashCommand;
 use eyre::Result;
 use twilight_interactions::command::{
-    CommandModel, CommandOption, CreateCommand, CreateOption, ResolvedUser,
+    AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption, ResolvedUser,
 };
 use twilight_model::{
     channel::{
@@ -30,7 +31,7 @@ mod default;
 mod edit;
 mod view;
 
-#[derive(CreateCommand, CommandModel, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(name = "settings")]
 #[flags(SKIP_DEFER)]
 /// Adjust your danser settings
@@ -41,6 +42,18 @@ pub enum Settings {
     Default(SettingsDefault),
     #[command(name = "edit")]
     Edit(SettingsEdit),
+    #[command(name = "view")]
+    View(SettingsView),
+}
+
+#[derive(CommandModel)]
+pub enum SettingsParsable {
+    #[command(name = "copy")]
+    Copy(SettingsCopy),
+    #[command(name = "default")]
+    Default(SettingsDefault),
+    #[command(name = "edit")]
+    Edit(SettingsEditAutocomplete),
     #[command(name = "view")]
     View(SettingsView),
 }
@@ -69,15 +82,15 @@ pub enum SettingsConfirm {
     Confirm,
 }
 
-#[derive(CreateCommand, CommandModel)]
+#[derive(CreateCommand)]
 #[command(name = "edit")]
 /// Make specific changes to your settings
 pub struct SettingsEdit {
     /// Provide your own .json settings file
     file: Option<Attachment>,
-    #[command(min_value = 1)]
-    /// Index of the skin (see /skinlist)
-    skin: Option<usize>,
+    #[command(autocomplete = true)]
+    /// Specify one of the available skins
+    skin: Option<String>,
     #[command(min_value = 0.1, max_value = 2.0)]
     /// Scale the size of the cursor
     cursor_scale: Option<f64>,
@@ -123,6 +136,92 @@ pub struct SettingsEdit {
     strain_graph: Option<Visibility>,
 }
 
+impl TryFrom<SettingsEditAutocomplete> for SettingsEdit {
+    type Error = String;
+
+    #[inline]
+    fn try_from(edit: SettingsEditAutocomplete) -> Result<Self, Self::Error> {
+        let SettingsEditAutocomplete {
+            file,
+            skin,
+            cursor_scale,
+            cursor_ripples,
+            leaderboard,
+            storyboard,
+            video,
+            dim,
+            music_volume,
+            hitsound_volume,
+            beatmap_hitsounds,
+            pp,
+            pp_decimals,
+            hit_error_meter,
+            hit_error_decimals,
+            aim_error_meter,
+            aim_error_decimals,
+            hit_counter,
+            sliderbreaks,
+            strain_graph,
+        } = edit;
+
+        let skin = match skin {
+            AutocompleteValue::Focused(skin) => return Err(skin),
+            AutocompleteValue::None => None,
+            AutocompleteValue::Completed(skin) => Some(skin),
+        };
+
+        let edit = Self {
+            file,
+            skin,
+            cursor_scale,
+            cursor_ripples,
+            leaderboard,
+            storyboard,
+            video,
+            dim,
+            music_volume,
+            hitsound_volume,
+            beatmap_hitsounds,
+            pp,
+            pp_decimals,
+            hit_error_meter,
+            hit_error_decimals,
+            aim_error_meter,
+            aim_error_decimals,
+            hit_counter,
+            sliderbreaks,
+            strain_graph,
+        };
+
+        Ok(edit)
+    }
+}
+
+#[derive(CommandModel)]
+#[command(autocomplete = true)]
+pub struct SettingsEditAutocomplete {
+    file: Option<Attachment>,
+    skin: AutocompleteValue<String>,
+    cursor_scale: Option<f64>,
+    cursor_ripples: Option<bool>,
+    leaderboard: Option<bool>,
+    storyboard: Option<bool>,
+    video: Option<bool>,
+    dim: Option<u8>,
+    music_volume: Option<u8>,
+    hitsound_volume: Option<u8>,
+    beatmap_hitsounds: Option<bool>,
+    pp: Option<Visibility>,
+    pp_decimals: Option<u32>,
+    hit_error_meter: Option<Visibility>,
+    hit_error_decimals: Option<u32>,
+    aim_error_meter: Option<Visibility>,
+    aim_error_decimals: Option<u32>,
+    hit_counter: Option<Visibility>,
+    sliderbreaks: Option<Visibility>,
+    strain_graph: Option<Visibility>,
+}
+
 #[derive(CreateOption, CommandOption)]
 pub enum Visibility {
     #[option(name = "Show", value = "show")]
@@ -140,11 +239,11 @@ pub struct SettingsView {
 }
 
 pub async fn slash_settings(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    match Settings::from_interaction(command.input_data())? {
-        Settings::Copy(args) => copy(ctx, command, args).await,
-        Settings::Default(args) => default(ctx, command, args).await,
-        Settings::Edit(args) => edit(ctx, command, args).await,
-        Settings::View(args) => view(ctx, command, args).await,
+    match SettingsParsable::from_interaction(command.input_data())? {
+        SettingsParsable::Copy(args) => copy(ctx, command, args).await,
+        SettingsParsable::Default(args) => default(ctx, command, args).await,
+        SettingsParsable::Edit(args) => edit(ctx, command, args).await,
+        SettingsParsable::View(args) => view(ctx, command, args).await,
     }
 }
 

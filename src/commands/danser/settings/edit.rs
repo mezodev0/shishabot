@@ -1,11 +1,14 @@
 use std::{
+    convert::TryInto,
     fs::{self, File, OpenOptions},
     path::PathBuf,
     sync::Arc,
 };
 
 use eyre::{Context as _, ContextCompat, Report, Result};
+use twilight_interactions::command::AutocompleteValue;
 use twilight_model::{
+    application::command::CommandOptionChoice,
     channel::embed::{Embed, EmbedField},
     user::User,
 };
@@ -15,17 +18,59 @@ use crate::{
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         interaction::InteractionCommand,
-        Authored, InteractionCommandExt,
+        levenshtein_distance, Authored, CowUtils, InteractionCommandExt,
     },
 };
 
-use super::{create_settings_embed, SettingsEdit, Visibility};
+use super::{create_settings_embed, SettingsEdit, SettingsEditAutocomplete, Visibility};
 
 pub async fn edit(
     ctx: Arc<Context>,
     command: InteractionCommand,
-    args: SettingsEdit,
+    args: SettingsEditAutocomplete,
 ) -> Result<()> {
+    let args: SettingsEdit = match args.try_into() {
+        Ok(args) => args,
+        Err(autocomplete) => {
+            if autocomplete.is_empty() {
+                command.autocomplete(&ctx, Vec::new()).await?;
+
+                return Ok(());
+            }
+
+            let no_underscores = autocomplete.cow_replace('_', " ");
+            let skin = no_underscores.cow_to_ascii_lowercase();
+
+            let mut skins: Vec<_> = ctx
+                .skin_list()
+                .get()?
+                .iter()
+                .map(|skin| {
+                    skin.to_string_lossy()
+                        .cow_replace('_', " ")
+                        .to_ascii_lowercase()
+                })
+                .filter(|haystack| haystack.contains(skin.as_ref()))
+                .take(25)
+                .collect();
+
+            skins.sort_unstable_by_key(|opt| levenshtein_distance(opt, skin.as_ref()).0);
+
+            let choices = skins
+                .into_iter()
+                .map(|skin| CommandOptionChoice::String {
+                    name: skin.clone(),
+                    name_localizations: None,
+                    value: skin,
+                })
+                .collect();
+
+            command.autocomplete(&ctx, choices).await?;
+
+            return Ok(());
+        }
+    };
+
     let author = command.user_id()?;
     let danser_path = BotConfig::get().paths.danser();
 
@@ -133,8 +178,11 @@ pub async fn edit(
 
             Ok(())
         }
-        ModifyResult::InvalidSkin { max_idx } => {
-            let content = format!("Invalid skin index, must be between 1 and {max_idx}");
+        ModifyResult::SkinNotFound => {
+            let content = format!(
+                "No skin with the specified name is stored.\n\
+                Check `/skinlist` to see available skins."
+            );
             command.error_callback(&ctx, content, false).await?;
 
             return Ok(());
@@ -150,7 +198,7 @@ pub async fn edit(
 
 enum ModifyResult {
     Change(bool),
-    InvalidSkin { max_idx: usize },
+    SkinNotFound,
     Err(Report),
 }
 
@@ -185,14 +233,21 @@ fn modify_settings(
     let mut changed = false;
 
     if let Some(skin) = skin {
-        // Get name of given index
-        let skin_name = match ctx
-            .skin_list()
-            .get()
-            .map(|skins| skins.get(skin - 1).ok_or(skins.len()))
-        {
-            Ok(Ok(name)) => name.to_owned(),
-            Ok(Err(max_idx)) => return ModifyResult::InvalidSkin { max_idx },
+        let skin_name_res = ctx.skin_list().get().map(|skins| {
+            let skin = skin.cow_replace('_', " ");
+
+            skins.iter().find_map(|skin_| {
+                let s = skin_.to_ascii_lowercase();
+                let s = s.to_string_lossy();
+                let s = s.cow_replace('_', " ");
+
+                (s == skin).then(|| skin_.to_owned())
+            })
+        });
+
+        let skin_name = match skin_name_res {
+            Ok(Some(name)) => name,
+            Ok(None) => return ModifyResult::SkinNotFound,
             Err(err) => return ModifyResult::Err(err),
         };
 
