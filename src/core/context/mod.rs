@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use eyre::{Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
@@ -25,7 +25,10 @@ use super::{
     ReplayQueue,
 };
 
+use self::skin_list::SkinList;
+
 mod configs;
+mod skin_list;
 
 pub struct Context {
     pub buckets: Buckets,
@@ -37,6 +40,7 @@ pub struct Context {
     pub stats: Arc<BotStats>,
     pub replay_queue: ReplayQueue,
     root_settings: RootSettings,
+    skin_list: Arc<Mutex<SkinList>>,
     application_id: Id<ApplicationMarker>,
     clients: Clients,
 }
@@ -50,9 +54,13 @@ impl Context {
         &self.clients.osu
     }
 
-    /// Returns the custom client
     pub fn client(&self) -> &CustomClient {
         &self.clients.custom
+    }
+
+    /// Returns a mutex guard, don't hold it for too long!
+    pub fn skin_list(&self) -> MutexGuard<'_, SkinList> {
+        self.skin_list.lock().unwrap()
     }
 
     pub async fn new() -> Result<(Self, Events)> {
@@ -120,6 +128,7 @@ impl Context {
             stats,
             buckets: Buckets::new(),
             replay_queue: ReplayQueue::new(),
+            skin_list: Arc::new(Mutex::default()),
         };
 
         Ok((ctx, events))

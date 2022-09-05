@@ -17,16 +17,19 @@ pub async fn remove(
     let SkinRemove { index } = args;
 
     let skin_path = BotConfig::get().paths.skins();
-    let skin_dir = fs::read_dir(&skin_path).context("failed to read skins directory")?;
+    let skin_dir = fs::read_dir(&skin_path).context("failed to read skins folder")?;
 
     let mut skin_list = skin_dir
         .collect::<Result<Vec<_>, _>>()
-        .context("failed to read entry in skins directory")?;
+        .context("failed to read entry in skins folder")?;
 
     skin_list.sort_unstable_by_key(|entry| entry.file_name().to_ascii_lowercase());
 
     if let Some(skin_to_remove) = skin_list.get(index - 1) {
         fs::remove_dir_all(skin_to_remove.path())?;
+
+        // Reset the skin list cache
+        ctx.skin_list().clear();
 
         let skin = skin_to_remove.file_name();
         let content = format!("Successfully deleted skin `{}`", skin.to_string_lossy());

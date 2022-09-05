@@ -94,7 +94,7 @@ pub async fn edit(
     }
 
     // Modify the settings and check if something changed
-    match modify_settings(&mut settings, args) {
+    match modify_settings(&ctx, &mut settings, args) {
         ModifyResult::Change(true) => {
             let file = OpenOptions::new()
                 .write(true)
@@ -154,7 +154,11 @@ enum ModifyResult {
     Err(Report),
 }
 
-fn modify_settings(settings: &mut DanserSettings, args: SettingsEdit) -> ModifyResult {
+fn modify_settings(
+    ctx: &Context,
+    settings: &mut DanserSettings,
+    args: SettingsEdit,
+) -> ModifyResult {
     let SettingsEdit {
         file: _,
         skin,
@@ -181,36 +185,15 @@ fn modify_settings(settings: &mut DanserSettings, args: SettingsEdit) -> ModifyR
     let mut changed = false;
 
     if let Some(skin) = skin {
-        let skins = BotConfig::get().paths.skins();
-
-        // Get directory
-        let skins_dir = match fs::read_dir(skins).context("failed to read skins folder") {
-            Ok(dir) => dir,
-            Err(err) => return ModifyResult::Err(err),
-        };
-
-        // Read all entries
-        let skin_names_res = skins_dir
-            .map(|res| res.map(|entry| entry.file_name()))
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to read entry of skins folder");
-
-        let mut skin_names = match skin_names_res {
-            Ok(names) => names,
-            Err(err) => return ModifyResult::Err(err),
-        };
-
-        // Sort
-        skin_names.sort_unstable_by_key(|name| name.to_ascii_lowercase());
-
         // Get name of given index
-        let skin_name = match skin_names.get(skin - 1) {
-            Some(name) => name,
-            None => {
-                return ModifyResult::InvalidSkin {
-                    max_idx: skin_names.len(),
-                }
-            }
+        let skin_name = match ctx
+            .skin_list()
+            .get()
+            .map(|skins| skins.get(skin - 1).ok_or(skins.len()))
+        {
+            Ok(Ok(name)) => name.to_owned(),
+            Ok(Err(max_idx)) => return ModifyResult::InvalidSkin { max_idx },
+            Err(err) => return ModifyResult::Err(err),
         };
 
         // Get skin of current settings

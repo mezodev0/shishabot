@@ -50,6 +50,7 @@ impl Paths {
         path
     }
 
+    /// Avoid this, use Context::skin_list instead if possible
     pub fn skins(&self) -> PathBuf {
         let mut path = self.folders.clone();
         path.push("Skins");

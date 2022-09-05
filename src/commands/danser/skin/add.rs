@@ -67,22 +67,18 @@ pub async fn add(
         }
     };
 
-    let config = BotConfig::get();
-    let mut skin_file = config.paths.skins();
-
     // Slight optimization by re-using the builder and overwriting the previous embed
     builder = builder.embed("Generating skin name...");
     command.update(&ctx, &builder).await?;
 
     let mut skin_file = BotConfig::get().paths.skins();
 
-    let mut skin_list = fs::read_dir(&skin_file)
-        .context("failed to read skins folder")?
-        .map(|res| res.map(|entry| entry.file_name().to_ascii_lowercase()))
-        .collect::<Result<Vec<_>, _>>()
-        .context("failed to read entry in skins folder")?;
-
-    skin_list.sort_unstable();
+    let skin_list: Vec<_> = ctx
+        .skin_list()
+        .get()?
+        .iter()
+        .map(|skin| skin.to_ascii_lowercase())
+        .collect();
 
     let mut needle = OsString::from(filename);
     needle.make_ascii_lowercase();
@@ -130,6 +126,9 @@ pub async fn add(
 
         return Ok(());
     }
+
+    // Reset the skin list cache
+    ctx.skin_list().clear();
 
     let content = format!("Added skin to list at index `{idx}`");
     builder = builder.embed(content);
