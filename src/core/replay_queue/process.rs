@@ -214,14 +214,13 @@ impl ReplayQueue {
                 }
             };
 
-            let mut file_path = config.paths.danser().to_owned();
-            file_path.push(format!("videos/{filename}.mp4"));
-            let author = user.to_string();
+            let mut file_path = config.paths.replays();
+            file_path.push(format!("{filename}.mp4"));
 
             info!("Started upload to shisha.mezo.xyz");
             ctx.replay_queue.set_status(ReplayStatus::Uploading).await;
 
-            let upload_fut = ctx.client().upload_video(&video_title, &author, file_path);
+            let upload_fut = ctx.client().upload_video(&video_title, user, file_path);
 
             let link = match upload_fut.await {
                 Ok(res) if res.error == 1 => {

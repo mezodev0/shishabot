@@ -16,11 +16,17 @@ use tokio::{
     io::AsyncReadExt,
     time::Duration,
 };
-use twilight_model::channel::Attachment;
+use twilight_model::{
+    channel::Attachment,
+    id::{marker::UserMarker, Id},
+};
 
 use crate::core::BotConfig;
 
+use self::multipart::Multipart;
+
 mod deserialize;
+mod multipart;
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
 
@@ -117,23 +123,24 @@ impl CustomClient {
         Self::error_for_status(response, url).await
     }
 
-    async fn make_post_request<F: Serialize>(
+    async fn make_post_request(
         &self,
         url: impl AsRef<str>,
         site: Site,
-        form: &F,
+        form: Multipart,
     ) -> Result<Bytes> {
         let url = url.as_ref();
         trace!("POST request to url {url}");
 
-        let form_body = serde_urlencoded::to_string(form).context("failed to encode form")?;
+        let content_type = format!("multipart/form-data; boundary={}", form.boundary());
+        let form = form.finish();
 
         let req = Request::builder()
             .method(Method::POST)
             .uri(url)
             .header(USER_AGENT, MY_USER_AGENT)
-            .header(CONTENT_TYPE, APPLICATION_URLENCODED)
-            .body(Body::from(form_body))
+            .header(CONTENT_TYPE, content_type)
+            .body(Body::from(form))
             .context("failed to build POST request")?;
 
         self.ratelimit(site).await;
@@ -181,29 +188,16 @@ impl CustomClient {
     pub async fn upload_video(
         &self,
         title: &str,
-        author: &str,
+        author: Id<UserMarker>,
         path: impl AsRef<Path>,
     ) -> Result<UploadResponse> {
-        let path = path.as_ref();
-
-        let mut file = File::open(&path)
+        let form = Multipart::new()
+            .push_file("video", path)
             .await
-            .with_context(|| format!("failed to open file {path:?}"))?;
-
-        let mut data = Vec::with_capacity(1_048_576);
-
-        file.read_to_end(&mut data)
-            .await
-            .with_context(|| format!("failed to read file {path:?}"))?;
-
-        trace!("uploading file of size {} bytes", data.len());
-
-        let form = &[
-            ("video", data.as_slice()),
-            ("title", title.as_bytes()),
-            ("author", author.as_bytes()),
-            ("secret", self.upload.secret.as_bytes()),
-        ];
+            .context("failed to create multipart form")?
+            .push_text("title", title)
+            .push_text("author", author)
+            .push_text("secret", self.upload.secret);
 
         let bytes = self
             .make_post_request(self.upload.url, Site::ShishaMezo, form)
