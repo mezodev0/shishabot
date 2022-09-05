@@ -20,7 +20,10 @@ use crate::{
     util::hasher::SimpleBuildHasher,
 };
 
-use super::{buckets::Buckets, cluster::build_cluster, settings::RootSettings, Cache, ReplayQueue};
+use super::{
+    buckets::Buckets, cluster::build_cluster, settings::RootSettings, stats::BotStats, Cache,
+    ReplayQueue,
+};
 
 mod configs;
 
@@ -31,6 +34,7 @@ pub struct Context {
     pub http: Arc<Client>,
     pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, SimpleBuildHasher>>,
     pub standby: Standby,
+    pub stats: Arc<BotStats>,
     pub replay_queue: ReplayQueue,
     root_settings: RootSettings,
     application_id: Id<ApplicationMarker>,
@@ -96,6 +100,7 @@ impl Context {
         let custom = CustomClient::new();
 
         let (cache, resume_data) = Cache::new().await;
+        let stats = Arc::new(BotStats::new());
 
         let clients = Clients::new(osu, custom);
         let (cluster, events) =
@@ -112,6 +117,7 @@ impl Context {
             root_settings,
             paginations: Arc::new(paginations),
             standby: Standby::new(),
+            stats,
             buckets: Buckets::new(),
             replay_queue: ReplayQueue::new(),
         };

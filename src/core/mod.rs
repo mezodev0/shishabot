@@ -17,3 +17,4 @@ pub mod buckets;
 pub mod commands;
 pub mod logging;
 pub mod settings;
+pub mod stats;

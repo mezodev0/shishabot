@@ -24,3 +24,5 @@ pub const UNKNOWN_CHANNEL: u64 = 10003;
 // Misc
 pub const INVITE_LINK: &str = "https://discord.com/api/oauth2/authorize?client_id=867681950818893835&permissions=117824&scope=bot";
 pub const SHISHABOT_GITHUB: &str = "https://github.com/mezodev0/shishabot";
+pub const SHISHABOT_DISCORD: &str = "https://discord.gg/z86rjQazq4";
+pub const SHISHABOT_WEBSITE: &str = "https://shisha.mezo.xyz";
