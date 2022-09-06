@@ -289,30 +289,42 @@ impl ReplayQueue {
     }
 }
 
-async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) -> Result<()> {
-    let mut lines = reader.lines();
-    let mut started_encoding = false;
+async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) {
+    async fn inner(ctx: &Context, reader: BufReader<ChildStdout>) -> Result<()> {
+        let mut lines = reader.lines();
+        let mut started_encoding = false;
 
-    while let Some(line) = lines.next_line().await? {
-        if let Some(idx) = line.find("Progress: ").map(|idx| idx + 10) {
-            if let Some(end) = line[idx..].find('%') {
-                if let Ok(progress) = line[idx..idx + end].parse() {
-                    let status = if started_encoding {
-                        ReplayStatus::Encoding(progress)
+        while let Some(line) = lines
+            .next_line()
+            .await
+            .context("failed to read line of danser's stdout")?
+        {
+            if let Some(idx) = line.find("Progress: ").map(|idx| idx + 10) {
+                if let Some(end) = line[idx..].find('%') {
+                    if let Ok(progress) = line[idx..idx + end].parse() {
+                        let status = if started_encoding {
+                            ReplayStatus::Encoding(progress)
+                        } else {
+                            ReplayStatus::Rendering(progress)
+                        };
+
+                        ctx.replay_queue.set_status(status).await;
                     } else {
-                        ReplayStatus::Rendering(progress)
-                    };
-
-                    ctx.replay_queue.set_status(status).await;
-                } else {
-                    debug!("failed to parse progress in line `{line}`");
+                        debug!("failed to parse progress in line `{line}`");
+                    }
                 }
+            } else if line.contains("Starting encoding!") {
+                started_encoding = true;
+                let status = ReplayStatus::Encoding(0);
+                ctx.replay_queue.set_status(status).await;
             }
-        } else if line.contains("Starting encoding!") {
-            started_encoding = true;
-            let status = ReplayStatus::Encoding(0);
-            ctx.replay_queue.set_status(status).await;
         }
+
+        Ok(())
+    }
+
+    if let Err(err) = inner(ctx, reader).await {
+        error!("{err:?}");
     }
 
     future::pending::<()>().await;
