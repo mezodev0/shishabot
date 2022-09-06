@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     path::PathBuf,
 };
@@ -9,6 +10,8 @@ use twilight_model::id::{
     Id,
 };
 
+use crate::util::CowUtils;
+
 #[derive(Clone)]
 pub struct ReplayData {
     pub input_channel: Id<ChannelMarker>,
@@ -17,6 +20,36 @@ pub struct ReplayData {
     pub replay: ReplaySlim,
     pub time_points: TimePoints,
     pub user: Id<UserMarker>,
+}
+
+impl ReplayData {
+    pub fn replay_name(&self) -> Cow<'_, str> {
+        let name = self
+            .path
+            .file_name()
+            .expect("missing file name")
+            .to_string_lossy();
+
+        let extension = name.rfind(".osr").unwrap_or(name.len());
+        let suffix = name[..extension].rfind("_Osu").unwrap_or(extension);
+
+        match name {
+            Cow::Borrowed(name) => name[..suffix].cow_replace('_', " "),
+            Cow::Owned(mut name) => {
+                name.truncate(suffix);
+
+                let mut idx = 0;
+
+                while let Some(i) = name.get(idx..).and_then(|suffix| suffix.find('_')) {
+                    let bytes = unsafe { name[idx..].as_bytes_mut() };
+                    bytes[i] = b' ';
+                    idx = i + 1;
+                }
+
+                Cow::Owned(name)
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -40,8 +73,8 @@ impl Display for ReplayStatus {
         match self {
             Self::Waiting => f.write_str("Waiting"),
             Self::Downloading => f.write_str("Downloading"),
-            Self::Rendering(progress) => write!(f, "Rendering: {progress}%"),
-            Self::Encoding(progress) => write!(f, "Encoding: {progress}%"),
+            Self::Rendering(progress) => write!(f, "Rendering ({progress}%)"),
+            Self::Encoding(progress) => write!(f, "Encoding ({progress}%)"),
             Self::Uploading => f.write_str("Uploading"),
         }
     }
