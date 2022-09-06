@@ -7,9 +7,9 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::util::hasher::SimpleBuildHasher;
+use crate::util::hasher::IntBuildHasher;
 
-type Servers = FlurryMap<Id<GuildMarker>, Server, SimpleBuildHasher>;
+type Servers = FlurryMap<Id<GuildMarker>, Server, IntBuildHasher>;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RootSettings {
@@ -19,12 +19,15 @@ pub struct RootSettings {
 
 #[derive(Clone, Debug, Default)]
 pub struct Server {
-    pub input_channels: HashSet<Id<ChannelMarker>>,
+    pub input_channels: HashSet<Id<ChannelMarker>, IntBuildHasher>,
     pub output_channel: Option<Id<ChannelMarker>>,
 }
 
 mod servers {
-    use std::fmt::{Formatter, Result as FmtResult};
+    use std::{
+        collections::HashSet,
+        fmt::{Formatter, Result as FmtResult},
+    };
 
     use serde::{
         de::{SeqAccess, Visitor},
@@ -36,14 +39,14 @@ mod servers {
         Id,
     };
 
-    use crate::util::hasher::SimpleBuildHasher;
+    use crate::util::hasher::IntBuildHasher;
 
     use super::{FlurryMap, Server, Servers};
 
     #[derive(Deserialize)]
     struct RawServer {
         server_id: Id<GuildMarker>,
-        input_channels: std::collections::HashSet<Id<ChannelMarker>>,
+        input_channels: HashSet<Id<ChannelMarker>, IntBuildHasher>,
         output_channel: Option<Id<ChannelMarker>>,
     }
 
@@ -57,10 +60,8 @@ mod servers {
         }
 
         fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-            let servers = FlurryMap::with_capacity_and_hasher(
-                seq.size_hint().unwrap_or(0),
-                SimpleBuildHasher,
-            );
+            let servers =
+                FlurryMap::with_capacity_and_hasher(seq.size_hint().unwrap_or(0), IntBuildHasher);
 
             {
                 let guard = servers.pin();

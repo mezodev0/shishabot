@@ -17,7 +17,7 @@ use twilight_standby::Standby;
 
 use crate::{
     core::BotConfig, custom_client::CustomClient, pagination::Pagination,
-    util::hasher::SimpleBuildHasher,
+    util::hasher::IntBuildHasher,
 };
 
 use super::{cluster::build_cluster, settings::RootSettings, stats::BotStats, Cache, ReplayQueue};
@@ -31,7 +31,7 @@ pub struct Context {
     pub cache: Cache,
     pub cluster: Cluster,
     pub http: Arc<Client>,
-    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, SimpleBuildHasher>>,
+    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, IntBuildHasher>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     pub replay_queue: ReplayQueue,
@@ -110,7 +110,7 @@ impl Context {
         let (cluster, events) =
             build_cluster(discord_token, Arc::clone(&http), resume_data).await?;
 
-        let paginations = TokioMutexMap::with_shard_amount_and_hasher(16, SimpleBuildHasher);
+        let paginations = TokioMutexMap::with_shard_amount_and_hasher(16, IntBuildHasher);
 
         let ctx = Self {
             cache,
