@@ -3,8 +3,6 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod flags;
-mod has_mods;
-mod has_name;
 mod pagination;
 mod slash;
 mod util;
@@ -18,35 +16,6 @@ pub fn slash_command(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
 
     match slash::derive(derive_input) {
-        Ok(result) => result.into(),
-        Err(err) => err.to_compile_error().into(),
-    }
-}
-
-/// Derive the `HasName` trait which provides a `username` method.
-///
-/// Can only be derived on structs containing the following named fields:
-/// - `name`: `Option<String>` or `Option<Cow<'_, str>>`
-/// - `discord`: `Option<Id<UserMarker>>`
-#[proc_macro_derive(HasName)]
-pub fn has_name(input: TokenStream) -> TokenStream {
-    let derive_input = parse_macro_input!(input as DeriveInput);
-
-    match has_name::derive(derive_input) {
-        Ok(result) => result.into(),
-        Err(err) => err.to_compile_error().into(),
-    }
-}
-
-/// Derive the `HasMods` trait which provides a `mods` method.
-///
-/// Can only be derived on structs containing the following named fields:
-/// - `mods`: `Option<String>` or `Option<Cow<'_, str>>`
-#[proc_macro_derive(HasMods)]
-pub fn has_mods(input: TokenStream) -> TokenStream {
-    let derive_input = parse_macro_input!(input as DeriveInput);
-
-    match has_mods::derive(derive_input) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }
