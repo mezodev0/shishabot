@@ -5,6 +5,7 @@ use std::{
     fs,
     io::Cursor,
     path::PathBuf,
+    process::Stdio,
     sync::Arc,
 };
 
@@ -12,7 +13,11 @@ use bytes::Bytes;
 use eyre::{Context as _, ContextCompat, Report, Result};
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{Beatmap as Map, GameMods};
-use tokio::process::Command;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
+    process::{ChildStdout, Command},
+    sync::oneshot,
+};
 use zip::ZipArchive;
 
 use crate::{
@@ -133,7 +138,9 @@ impl ReplayQueue {
                 .arg(settings)
                 .arg("-quickstart")
                 .arg("-out")
-                .arg(filename);
+                .arg(filename)
+                .stderr(Stdio::piped())
+                .stdout(Stdio::piped());
 
             if let Some(start) = time_points.start {
                 command.args(["-start", &start.to_string()]);
@@ -144,23 +151,55 @@ impl ReplayQueue {
             }
 
             info!("Started replay parsing");
-            ctx.replay_queue.set_status(ReplayStatus::Processing).await;
 
-            match command.output().await {
-                Ok(output) => {
-                    if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
-                        trace!("danser stdout: {stdout}");
+            ctx.replay_queue
+                .set_status(ReplayStatus::Rendering(0))
+                .await;
+
+            match command.spawn() {
+                Ok(mut child) => {
+                    let (tx, rx) = oneshot::channel();
+                    let stdout = child.stdout.take().expect("missing stdout on child");
+                    let ctx_ = Arc::clone(&ctx);
+
+                    tokio::spawn(async move {
+                        let reader = BufReader::new(stdout);
+
+                        tokio::select! {
+                            _ = rx => return,
+                            _ = read_danser_progress(&ctx_, reader) => {
+                                warn!("reading danser progress ended before the command finished")
+                            }
+                        }
+                    });
+
+                    let child_res = child.wait().await;
+                    let _ = tx.send(());
+
+                    if let Err(err) = child_res {
+                        let err = Report::from(err).wrap_err("failed to run danser command");
+                        warn!("{err:?}");
+
+                        let content = "Failed to run danser on the replay";
+                        let _ = input_channel.error(&ctx, content).await;
+
+                        ctx.replay_queue.reset_peek().await;
+                        continue;
                     }
 
-                    if let Ok(stderr) = std::str::from_utf8(&output.stderr) {
-                        warn!("danser stderr: {stderr}");
+                    if let Some(mut stderr) = child.stderr {
+                        let mut res = String::new();
+
+                        if stderr.read_to_string(&mut res).await.is_ok() {
+                            warn!("danser stderr: {res}");
+                        }
                     }
                 }
                 Err(err) => {
-                    let err = Report::from(err).wrap_err("failed to get command output");
+                    let err = Report::from(err).wrap_err("failed to start danser command");
                     warn!("{err:?}");
 
-                    let content = "Failed to parse replay";
+                    let content = "Failed to run danser on the replay";
                     let _ = input_channel.error(&ctx, content).await;
 
                     ctx.replay_queue.reset_peek().await;
@@ -258,6 +297,35 @@ impl ReplayQueue {
             ctx.replay_queue.reset_peek().await;
         }
     }
+}
+
+async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) -> Result<()> {
+    let mut lines = reader.lines();
+    let mut started_encoding = false;
+
+    while let Some(line) = lines.next_line().await? {
+        if let Some(idx) = line.find("Progress: ").map(|idx| idx + 10) {
+            if let Some(end) = line[idx..].find('%') {
+                if let Ok(progress) = line[idx..idx + end].parse() {
+                    let status = if started_encoding {
+                        ReplayStatus::Encoding(progress)
+                    } else {
+                        ReplayStatus::Rendering(progress)
+                    };
+
+                    ctx.replay_queue.set_status(status).await;
+                } else {
+                    debug!("failed to parse progress in line `{line}`");
+                }
+            }
+        } else if line.contains("Starting encoding!") {
+            started_encoding = true;
+            let status = ReplayStatus::Encoding(0);
+            ctx.replay_queue.set_status(status).await;
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]

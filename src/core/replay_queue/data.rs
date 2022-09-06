@@ -29,14 +29,21 @@ pub struct TimePoints {
 pub enum ReplayStatus {
     Waiting,
     Downloading,
-    Processing,
+    Rendering(u8),
+    Encoding(u8),
     Uploading,
 }
 
 impl Display for ReplayStatus {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        <Self as Debug>::fmt(self, f)
+        match self {
+            Self::Waiting => f.write_str("Waiting"),
+            Self::Downloading => f.write_str("Downloading"),
+            Self::Rendering(progress) => write!(f, "Rendering: {progress}%"),
+            Self::Encoding(progress) => write!(f, "Encoding: {progress}%"),
+            Self::Uploading => f.write_str("Uploading"),
+        }
     }
 }
 
