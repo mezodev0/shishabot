@@ -315,7 +315,7 @@ async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) -> 
         }
     }
 
-    let () = future::pending().await;
+    future::pending::<()>().await;
 
     unreachable!()
 }

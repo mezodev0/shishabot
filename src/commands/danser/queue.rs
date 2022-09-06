@@ -32,7 +32,7 @@ async fn slash_queue(ctx: Arc<Context>, command: InteractionCommand) -> Result<(
     let mut iter = queue_guard.iter();
 
     if let Some(data) = iter.next() {
-        let name = format!("Progress");
+        let name = "Progress".to_owned();
 
         let value = format!(
             "<@{user}>: {name}\n\
