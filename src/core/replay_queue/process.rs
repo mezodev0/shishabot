@@ -11,12 +11,12 @@ use std::{
 
 use bytes::Bytes;
 use eyre::{Context as _, ContextCompat, Report, Result};
+use futures::future;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{Beatmap as Map, GameMods};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, BufReader},
     process::{ChildStdout, Command},
-    sync::oneshot,
 };
 use zip::ZipArchive;
 
@@ -150,7 +150,7 @@ impl ReplayQueue {
                 command.args(["-end", &end.to_string()]);
             }
 
-            info!("Started replay parsing");
+            info!("Started replay processing");
 
             ctx.replay_queue
                 .set_status(ReplayStatus::Rendering(0))
@@ -158,41 +158,31 @@ impl ReplayQueue {
 
             match command.spawn() {
                 Ok(mut child) => {
-                    let (tx, rx) = oneshot::channel();
                     let stdout = child.stdout.take().expect("missing stdout on child");
-                    let ctx_ = Arc::clone(&ctx);
+                    let reader = BufReader::new(stdout);
 
-                    tokio::spawn(async move {
-                        let reader = BufReader::new(stdout);
+                    tokio::select! {
+                        _ = read_danser_progress(&ctx, reader) => unreachable!(),
+                        child_res = child.wait() => {
+                            if let Err(err) = child_res {
+                                let err = Report::from(err).wrap_err("failed to run danser command");
+                                warn!("{err:?}");
 
-                        tokio::select! {
-                            _ = rx => return,
-                            _ = read_danser_progress(&ctx_, reader) => {
-                                warn!("reading danser progress ended before the command finished")
+                                let content = "Failed to run danser on the replay";
+                                let _ = input_channel.error(&ctx, content).await;
+
+                                ctx.replay_queue.reset_peek().await;
+                                continue;
                             }
-                        }
-                    });
 
-                    let child_res = child.wait().await;
-                    let _ = tx.send(());
+                            if let Some(mut stderr) = child.stderr {
+                                let mut res = String::new();
 
-                    if let Err(err) = child_res {
-                        let err = Report::from(err).wrap_err("failed to run danser command");
-                        warn!("{err:?}");
-
-                        let content = "Failed to run danser on the replay";
-                        let _ = input_channel.error(&ctx, content).await;
-
-                        ctx.replay_queue.reset_peek().await;
-                        continue;
-                    }
-
-                    if let Some(mut stderr) = child.stderr {
-                        let mut res = String::new();
-
-                        if stderr.read_to_string(&mut res).await.is_ok() {
-                            warn!("danser stderr: {res}");
-                        }
+                                if stderr.read_to_string(&mut res).await.is_ok() {
+                                    warn!("danser stderr: {res}");
+                                }
+                            }
+                        },
                     }
                 }
                 Err(err) => {
@@ -207,7 +197,7 @@ impl ReplayQueue {
                 }
             }
 
-            info!("Finished replay parsing");
+            info!("Finished replay processing");
 
             let title = match get_title() {
                 Ok(title) => title,
@@ -325,7 +315,9 @@ async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) -> 
         }
     }
 
-    Ok(())
+    let () = future::pending().await;
+
+    unreachable!()
 }
 
 #[derive(Debug)]
