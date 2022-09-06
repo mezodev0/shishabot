@@ -1,4 +1,7 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+    sync::Arc,
+};
 
 use command_macros::SlashCommand;
 use eyre::Result;
@@ -43,24 +46,24 @@ async fn slash_queue(ctx: Arc<Context>, command: InteractionCommand) -> Result<(
             user = data.user,
             name = data.replay_name(),
             downloading = if let ReplayStatus::Downloading = status {
-                "\\🏃‍♂️"
+                ProcessStatus::Running(None)
             } else {
-                "\\✅"
+                ProcessStatus::Done
             },
             rendering = match status {
-                ReplayStatus::Downloading => "\\⌛".into(),
-                ReplayStatus::Rendering(progress) => Cow::Owned(format!("\\🏃‍♂️ ({progress}%)")),
-                _ => "\\✅".into(),
+                ReplayStatus::Downloading => ProcessStatus::Waiting,
+                ReplayStatus::Rendering(progress) => ProcessStatus::Running(Some(progress)),
+                _ => ProcessStatus::Done,
             },
             encoding = match status {
-                ReplayStatus::Encoding(progress) => Cow::Owned(format!("\\🏃‍♂️ ({progress}%)")),
-                ReplayStatus::Uploading => "\\✅".into(),
-                _ => "\\⌛".into(),
+                ReplayStatus::Encoding(progress) => ProcessStatus::Running(Some(progress)),
+                ReplayStatus::Uploading => ProcessStatus::Done,
+                _ => ProcessStatus::Waiting,
             },
             uploading = if let ReplayStatus::Uploading = status {
-                "\\🏃‍♂️"
+                ProcessStatus::Running(None)
             } else {
-                "\\⌛"
+                ProcessStatus::Waiting
             },
         );
 
@@ -96,4 +99,22 @@ async fn slash_queue(ctx: Arc<Context>, command: InteractionCommand) -> Result<(
     command.callback(&ctx, builder, false).await?;
 
     Ok(())
+}
+
+enum ProcessStatus {
+    Done,
+    Running(Option<u8>),
+    Waiting,
+}
+
+impl Display for ProcessStatus {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            ProcessStatus::Done => f.write_str("✅"),
+            ProcessStatus::Running(Some(progress)) => write!(f, "🏃‍♂️ ({progress}%)"),
+            ProcessStatus::Running(None) => f.write_str("🏃‍♂️"),
+            ProcessStatus::Waiting => f.write_str("⌛"),
+        }
+    }
 }
