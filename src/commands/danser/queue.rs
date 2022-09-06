@@ -1,9 +1,13 @@
-use std::{fmt::Write, sync::Arc};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+    sync::Arc,
+};
 
 use command_macros::SlashCommand;
 use eyre::Result;
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::{Context, ReplayStatus},
@@ -22,41 +26,95 @@ pub struct Queue;
 
 async fn slash_queue(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let queue_guard = ctx.replay_queue.queue.lock().await;
+    let status = *ctx.replay_queue.status.lock().await;
 
-    let queue_list = if queue_guard.is_empty() {
-        "The queue is empty".to_owned()
-    } else {
-        let mut s = String::new();
-        let status = *ctx.replay_queue.status.lock().await;
+    let mut embed = EmbedBuilder::new()
+        .title("Current queue")
+        .timestamp(OffsetDateTime::now_utc());
 
-        for (replay_data, idx) in queue_guard.iter().zip(1..) {
-            let name = replay_data
-                .path
-                .file_name()
-                .expect("missing file name")
-                .to_string_lossy();
+    let mut iter = queue_guard.iter();
 
-            let extension = name.rfind(".osr").unwrap_or(name.len());
-            let name = name[..extension].replace('_', " ");
+    if let Some(data) = iter.next() {
+        let name = "Progress".to_owned();
 
-            let status = (idx == 1)
-                .then_some(status)
-                .unwrap_or(ReplayStatus::Waiting);
+        let value = format!(
+            "<@{user}>: {name}\n\
+            • Downloading: {downloading}\n\
+            • Rendering: {rendering}\n\
+            • Encoding: {encoding}\n\
+            • Uploading: {uploading}",
+            user = data.user,
+            name = data.replay_name(),
+            downloading = if let ReplayStatus::Downloading = status {
+                ProcessStatus::Running(None)
+            } else {
+                ProcessStatus::Done
+            },
+            rendering = match status {
+                ReplayStatus::Downloading => ProcessStatus::Waiting,
+                ReplayStatus::Rendering(progress) => ProcessStatus::Running(Some(progress)),
+                _ => ProcessStatus::Done,
+            },
+            encoding = match status {
+                ReplayStatus::Encoding(progress) => ProcessStatus::Running(Some(progress)),
+                ReplayStatus::Uploading => ProcessStatus::Done,
+                _ => ProcessStatus::Waiting,
+            },
+            uploading = if let ReplayStatus::Uploading = status {
+                ProcessStatus::Running(None)
+            } else {
+                ProcessStatus::Waiting
+            },
+        );
 
-            let user = replay_data.user;
-            let _ = writeln!(s, "{idx}. {name} queued by <@{user}> - {status}");
+        let mut fields = vec![EmbedField {
+            inline: false,
+            name,
+            value,
+        }];
+
+        if let Some(data) = iter.next() {
+            let name = "Upcoming".to_owned();
+            let mut value = String::with_capacity(128);
+
+            let _ = writeln!(value, "`2.` <@{}>: {}", data.user, data.replay_name());
+
+            for (data, idx) in iter.zip(3..) {
+                let _ = writeln!(value, "`{idx}.` <@{}>: {}", data.user, data.replay_name());
+            }
+
+            fields.push(EmbedField {
+                inline: false,
+                name,
+                value,
+            });
         }
 
-        s
-    };
-
-    let embed = EmbedBuilder::new()
-        .title("Current queue")
-        .description(queue_list)
-        .timestamp(OffsetDateTime::now_utc());
+        embed = embed.fields(fields);
+    } else {
+        embed = embed.description("The queue is empty");
+    }
 
     let builder = MessageBuilder::new().embed(embed);
     command.callback(&ctx, builder, false).await?;
 
     Ok(())
+}
+
+enum ProcessStatus {
+    Done,
+    Running(Option<u8>),
+    Waiting,
+}
+
+impl Display for ProcessStatus {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            ProcessStatus::Done => f.write_str("✅"),
+            ProcessStatus::Running(Some(progress)) => write!(f, "🏃‍♂️ ({progress}%)"),
+            ProcessStatus::Running(None) => f.write_str("🏃‍♂️"),
+            ProcessStatus::Waiting => f.write_str("⌛"),
+        }
+    }
 }

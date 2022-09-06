@@ -1,13 +1,12 @@
-use std::{
-    fmt::{Debug, Display, Formatter, Result as FmtResult},
-    path::PathBuf,
-};
+use std::{borrow::Cow, path::PathBuf};
 
 use osu_db::Replay;
 use twilight_model::id::{
     marker::{ChannelMarker, UserMarker},
     Id,
 };
+
+use crate::util::CowUtils;
 
 #[derive(Clone)]
 pub struct ReplayData {
@@ -17,6 +16,36 @@ pub struct ReplayData {
     pub replay: ReplaySlim,
     pub time_points: TimePoints,
     pub user: Id<UserMarker>,
+}
+
+impl ReplayData {
+    pub fn replay_name(&self) -> Cow<'_, str> {
+        let name = self
+            .path
+            .file_name()
+            .expect("missing file name")
+            .to_string_lossy();
+
+        let extension = name.rfind(".osr").unwrap_or(name.len());
+        let suffix = name[..extension].rfind("_Osu").unwrap_or(extension);
+
+        match name {
+            Cow::Borrowed(name) => name[..suffix].cow_replace('_', " "),
+            Cow::Owned(mut name) => {
+                name.truncate(suffix);
+
+                let mut idx = 0;
+
+                while let Some(i) = name.get(idx..).and_then(|suffix| suffix.find('_')) {
+                    let bytes = unsafe { name[idx..].as_bytes_mut() };
+                    bytes[i] = b' ';
+                    idx = i + 1;
+                }
+
+                Cow::Owned(name)
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -29,15 +58,9 @@ pub struct TimePoints {
 pub enum ReplayStatus {
     Waiting,
     Downloading,
-    Processing,
+    Rendering(u8),
+    Encoding(u8),
     Uploading,
-}
-
-impl Display for ReplayStatus {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        <Self as Debug>::fmt(self, f)
-    }
 }
 
 #[derive(Clone)]
