@@ -293,6 +293,19 @@ fn modify_settings(
         };
     }
 
+    macro_rules! assign_reverse_cmp {
+        ($changed:ident: $($new:ident ~ $field:expr;)*) => {
+            $(
+                if let Some($new) = $new {
+                    if $field != !$new {
+                        $field = !$new;
+                        $changed = true;
+                    }
+                }
+            )*
+        };
+    }
+
     macro_rules! assign_visibility {
         ($changed:ident: $($new:ident ~ $field:expr;)*) => {
             $(
@@ -330,10 +343,13 @@ fn modify_settings(
         leaderboard ~ settings.gameplay.score_board.show;
         storyboard ~ settings.playfield.background.load_storyboards;
         video ~ settings.playfield.background.load_videos;
-        beatmap_hitsounds ~ settings.audio.ignore_beatmap_samples;
         pp_decimals ~ settings.gameplay.pp_counter.decimals;
         hit_error_decimals ~ settings.gameplay.hit_error_meter.unstable_rate_decimals;
         aim_error_decimals ~ settings.gameplay.aim_error_meter.unstable_rate_decimals;
+    }
+
+    assign_reverse_cmp! { changed:
+        beatmap_hitsounds ~ settings.audio.ignore_beatmap_samples;
     }
 
     assign_visibility! { changed:

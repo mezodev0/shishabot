@@ -287,7 +287,11 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
                 `beatmap hitsounds`: {}",
                 percent(settings.audio.music_volume),
                 percent(settings.audio.sample_volume),
-                on_off(settings.audio.ignore_beatmap_samples),
+                on_off(if settings.audio.ignore_beatmap_samples {
+                    false
+                } else {
+                    true
+                }),
             ),
         },
         EmbedField {
