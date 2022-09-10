@@ -10,7 +10,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    core::{Context, ReplayStatus},
+    core::{BotConfig, Context, ReplayStatus},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         interaction::InteractionCommand,
@@ -111,10 +111,12 @@ impl Display for ProcessStatus {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            ProcessStatus::Done => f.write_str("✅"),
-            ProcessStatus::Running(Some(progress)) => write!(f, "🏃‍♂️ ({progress}%)"),
-            ProcessStatus::Running(None) => f.write_str("🏃‍♂️"),
-            ProcessStatus::Waiting => f.write_str("⌛"),
+            ProcessStatus::Done => write!(f, "{}", BotConfig::get().emojis.white_check_mark),
+            ProcessStatus::Running(Some(progress)) => {
+                write!(f, "{} ({progress}%)", BotConfig::get().emojis.man_running)
+            }
+            ProcessStatus::Running(None) => write!(f, "{}", BotConfig::get().emojis.man_running),
+            ProcessStatus::Waiting => write!(f, "{}", BotConfig::get().emojis.hourglass),
         }
     }
 }

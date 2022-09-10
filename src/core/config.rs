@@ -13,6 +13,7 @@ static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 pub struct BotConfig {
     pub tokens: Tokens,
     pub paths: Paths,
+    pub emojis: Emojis,
     pub owners: Vec<Id<UserMarker>>,
     pub dev_guild: Id<GuildMarker>,
     pub upload_url: String,
@@ -74,6 +75,13 @@ pub struct Tokens {
     pub upload_secret: String,
 }
 
+#[derive(Debug)]
+pub struct Emojis {
+    pub man_running: String,
+    pub white_check_mark: String,
+    pub hourglass: String,
+}
+
 impl BotConfig {
     pub fn get() -> &'static Self {
         CONFIG
@@ -92,6 +100,11 @@ impl BotConfig {
             paths: Paths {
                 danser: env_var("DANSER_PATH")?,
                 folders: env_var("FOLDERS_PATH")?,
+            },
+            emojis: Emojis {
+                man_running: env_var("MAN_RUNNING")?,
+                white_check_mark: env_var("WHITE_CHECK_MARK")?,
+                hourglass: env_var("HOURGLASS")?,
             },
             owners: env_var("OWNERS_USER_ID")?,
             dev_guild: env_var("DEV_GUILD_ID")?,
