@@ -50,8 +50,21 @@ impl ReplayData {
 
 #[derive(Copy, Clone)]
 pub struct TimePoints {
-    pub start: Option<u16>,
-    pub end: Option<u16>,
+    pub start: u32,
+    pub end: u32,
+}
+
+impl TimePoints {
+    pub fn parse_single(s: &str) -> Result<u32, &'static str> {
+        let mut iter = s.split(':').map(str::parse);
+
+        match (iter.next(), iter.next()) {
+            (Some(Ok(minutes)), Some(Ok(seconds @ 0..=59))) => Ok(minutes * 60 + seconds),
+            (Some(Ok(_)), Some(Ok(_))) => Err("Seconds must be between 0 and 60!"),
+            (Some(Ok(seconds)), None) => Ok(seconds),
+            _ => Err("A value you supplied is not a number!"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

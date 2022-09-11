@@ -142,12 +142,12 @@ impl ReplayQueue {
                 .stderr(Stdio::piped())
                 .stdout(Stdio::piped());
 
-            if let Some(start) = time_points.start {
-                command.args(["-start", &start.to_string()]);
+            if time_points.start != 0 {
+                command.args(["-start", &time_points.start.to_string()]);
             }
 
-            if let Some(end) = time_points.end {
-                command.args(["-end", &end.to_string()]);
+            if time_points.end != 0 {
+                command.args(["-end", &time_points.end.to_string()]);
             }
 
             info!("Started replay processing");

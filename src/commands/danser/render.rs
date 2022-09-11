@@ -23,11 +23,11 @@ pub struct Render {
     /// Specify the replay through a .osr file
     attachment: Attachment,
     #[command(min_value = 0, max_value = 65_535)]
-    /// Specify a start timestamp in seconds
-    start: Option<u16>,
+    /// Specify a start timestamp in minutes and seconds
+    start: Option<String>,
     #[command(min_value = 0, max_value = 65_535)]
-    /// Specify an end timestamp in seconds
-    end: Option<u16>,
+    /// Specify an end timestamp in minutes and seconds
+    end: Option<String>,
 }
 
 pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -39,10 +39,34 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
 
     if !matches!(attachment.filename.split('.').last(), Some("osr")) {
         let content = "The attachment must be a .osr file!";
-        command.error_callback(&ctx, content, false).await?;
+        command.error_callback(&ctx, content, true).await?;
 
         return Ok(());
     }
+
+    let start_in_seconds = if let Some(start) = start {
+        match TimePoints::parse_single(&start) {
+            Ok(start) => start,
+            Err(err) => {
+                command.error_callback(&ctx, err, true).await?;
+                return Ok(());
+            }
+        }
+    } else {
+        0
+    };
+
+    let end_in_seconds = if let Some(end) = end {
+        match TimePoints::parse_single(&end) {
+            Ok(end) => end,
+            Err(err) => {
+                command.error_callback(&ctx, err, true).await?;
+                return Ok(());
+            }
+        }
+    } else {
+        0
+    };
 
     let output_channel = match command.guild_id {
         Some(guild) => {
@@ -132,7 +156,10 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
         output_channel,
         path: replay_file,
         replay: replay.into(),
-        time_points: TimePoints { start, end },
+        time_points: TimePoints {
+            start: start_in_seconds,
+            end: end_in_seconds,
+        },
         user: command.user_id()?,
     };
 
