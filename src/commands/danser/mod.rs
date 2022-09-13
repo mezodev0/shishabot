@@ -1,5 +1,8 @@
-pub use self::{queue::*, render::*, settings::*, setup::*, skin::*, skin_list::*};
+pub use self::{
+    msg_cmd_test::*, queue::*, render::*, settings::*, setup::*, skin::*, skin_list::*,
+};
 
+mod msg_cmd_test;
 mod queue;
 mod render;
 mod settings;

@@ -6,7 +6,7 @@ use crate::{
     core::{
         commands::{
             checks::check_authority,
-            slash::{SlashCommand, SlashCommands},
+            slash::{Command, Commands, SlashCommand},
         },
         events::{EventLocation, ProcessResult},
         BotConfig, Context,
@@ -27,7 +27,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
         info!("[{location}] {username} used command `{name}`");
     }
 
-    let slash = match SlashCommands::get().command(&name) {
+    let slash = match Commands::get().command(&name) {
         Some(slash) => slash,
         None => return error!("unknown slash command `{name}`"),
     };
@@ -46,16 +46,24 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
 async fn process_command(
     ctx: Arc<Context>,
     command: InteractionCommand,
-    slash: &SlashCommand,
+    cmd: Command,
 ) -> Result<ProcessResult> {
-    match pre_process_command(&ctx, &command, slash).await? {
-        Some(result) => Ok(result),
-        None => {
-            if slash.flags.defer() {
-                command.defer(&ctx, slash.flags.ephemeral()).await?;
-            }
+    match cmd {
+        Command::Slash(slash) => match pre_process_command(&ctx, &command, slash).await? {
+            Some(result) => Ok(result),
+            None => {
+                if slash.flags.defer() {
+                    command.defer(&ctx, slash.flags.ephemeral()).await?;
+                }
 
-            (slash.exec)(ctx, command).await?;
+                (slash.exec)(ctx, command).await?;
+
+                Ok(ProcessResult::Success)
+            }
+        },
+        Command::Message(msg) => {
+            command.defer(&ctx, false).await?;
+            (msg.exec)(ctx, command).await?;
 
             Ok(ProcessResult::Success)
         }

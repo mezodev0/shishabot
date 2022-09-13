@@ -18,7 +18,8 @@ use eyre::{Context as _, Result};
 use tokio::{runtime::Builder as RuntimeBuilder, signal};
 
 use crate::core::{
-    commands::slash::SlashCommands, event_loop, logging, BotConfig, Context, ReplayQueue,
+    commands::slash::{Command, Commands},
+    event_loop, logging, BotConfig, Context, ReplayQueue,
 };
 
 fn main() {
@@ -45,7 +46,7 @@ async fn async_main() -> Result<()> {
     let ctx = Arc::new(ctx);
 
     // Initialize commands
-    let slash_commands = SlashCommands::get().collect(|c| (c.create)().into());
+    let slash_commands = Commands::get().collect(Command::create);
     info!("Setting {} slash commands...", slash_commands.len());
 
     // info!("Defining: {slash_commands:#?}");
