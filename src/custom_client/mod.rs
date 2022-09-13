@@ -2,7 +2,7 @@ use std::{hash::Hash, path::Path};
 
 use bytes::Bytes;
 use eyre::{Context as _, Result};
-use http::Response;
+use http::{header::CONTENT_LENGTH, Response};
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
     header::{CONTENT_TYPE, USER_AGENT},
@@ -133,6 +133,7 @@ impl CustomClient {
             .uri(url)
             .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, content_type)
+            .header(CONTENT_LENGTH, form.len())
             .body(Body::from(form))
             .context("failed to build POST request")?;
 
