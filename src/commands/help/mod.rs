@@ -25,7 +25,7 @@ fn generate_menus(user: Id<UserMarker>, options: &[CommandOptionExt]) -> Vec<Com
         } = c.create();
 
         if description.is_empty() || (name == "owner" && !BotConfig::get().owners.contains(&user)) {
-            return None;
+            None
         } else {
             Some(SelectMenuOption {
                 default: false,

@@ -217,7 +217,7 @@ fn case_insensitive_exists(path_with_file: impl AsRef<Path>) -> Result<bool> {
     };
 
     let folder =
-        fs::read_dir(&path).with_context(|| format!("failed to read directory at {path:?}"))?;
+        fs::read_dir(path).with_context(|| format!("failed to read directory at {path:?}"))?;
 
     for res in folder {
         let mut entry_as_lower = res

@@ -66,9 +66,9 @@ impl Commands {
 
     pub fn collect<F, O>(&self, f: F) -> Vec<O>
     where
-        F: FnMut(Command) -> O,
+        F: FnMut(&Command) -> O,
     {
-        self.0.values().copied().map(f).collect()
+        self.0.values().map(f).collect()
     }
 
     pub fn filter_collect<F, O>(&self, f: F) -> Vec<O>
