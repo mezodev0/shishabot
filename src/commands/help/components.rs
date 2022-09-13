@@ -7,7 +7,7 @@ use twilight_interactions::command::{
 
 use crate::{
     core::{
-        commands::slash::{SlashCommand, SlashCommands},
+        commands::slash::{Command, Commands, SlashCommand},
         Context,
     },
     util::{
@@ -141,8 +141,12 @@ pub async fn handle_help_basecommand(ctx: &Context, component: InteractionCompon
         .first()
         .context("no menu option was selected")?;
 
-    let cmd = SlashCommands::get()
+    let cmd = Commands::get()
         .command(name)
+        .and_then(|cmd| match cmd {
+            Command::Slash(cmd) => Some(cmd),
+            Command::Message(_) => None,
+        })
         .with_context(|| format!("missing slash command `{name}`"))?;
 
     let ApplicationCommandData {
@@ -218,8 +222,12 @@ fn continue_subcommand(title: &mut String, name: &str) -> PartResult {
     let mut names = title.split(' ');
     let base = names.next().context("missing embed title")?;
 
-    let command = SlashCommands::get()
+    let command = Commands::get()
         .command(base)
+        .and_then(|cmd| match cmd {
+            Command::Slash(cmd) => Some(cmd),
+            Command::Message(_) => None,
+        })
         .context("unknown command")?;
 
     let authority = command.flags.authority();

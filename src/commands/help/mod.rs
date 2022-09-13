@@ -1,13 +1,14 @@
-use twilight_interactions::command::{
-    ApplicationCommandData, CommandOptionExt, CommandOptionExtInner,
-};
+use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
 use twilight_model::{
-    application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
+    application::{
+        command::Command,
+        component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
+    },
     channel::embed::EmbedField,
     id::{marker::UserMarker, Id},
 };
 
-use crate::core::{commands::slash::SlashCommands, BotConfig};
+use crate::core::{commands::slash::Commands, BotConfig};
 
 pub use self::{
     components::{handle_help_basecommand, handle_help_subcommand},
@@ -18,26 +19,23 @@ mod components;
 mod interaction;
 
 fn generate_menus(user: Id<UserMarker>, options: &[CommandOptionExt]) -> Vec<Component> {
-    let mut base_options: Vec<_> = SlashCommands::get().collect(|c| {
-        let ApplicationCommandData {
+    let base_options: Vec<_> = Commands::get().filter_collect(|c| {
+        let Command {
             name, description, ..
-        } = (c.create)();
+        } = c.create();
 
-        SelectMenuOption {
-            default: false,
-            description: Some(description),
-            emoji: None,
-            label: name.clone(),
-            value: name,
+        if description.is_empty() || (name == "owner" && !BotConfig::get().owners.contains(&user)) {
+            return None;
+        } else {
+            Some(SelectMenuOption {
+                default: false,
+                description: Some(description),
+                emoji: None,
+                label: name.clone(),
+                value: name,
+            })
         }
     });
-
-    if !BotConfig::get().owners.contains(&user) {
-        if let Some(idx) = base_options.iter().position(|opt| opt.label == "owner") {
-            base_options[idx..].rotate_left(1);
-            base_options.truncate(base_options.len() - 1);
-        }
-    }
 
     let select_menu = SelectMenu {
         custom_id: "help_basecommand".to_owned(),
