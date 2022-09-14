@@ -199,14 +199,16 @@ impl CustomClient {
                 format!("https://osu.ppy.sh/scores/osu/{score_id}/download"),
                 Site::OsuApi,
             )
-            .await?;
+            .await
+            .context("failed to download osu replay")?;
 
         let mut path = BotConfig::get().paths.downloads();
         path.push(format!("{score_id}.osr"));
 
-        std::fs::write(path.clone(), &bytes)?;
+        std::fs::write(path.clone(), &bytes).context("failed to create replay file")?;
 
-        let replay = osu_db::Replay::from_file(path.as_path())?;
+        let replay =
+            osu_db::Replay::from_file(path.as_path()).context("failed to get replay from file")?;
         let replay_slim = ReplaySlim::from(replay);
 
         Ok(replay_slim)

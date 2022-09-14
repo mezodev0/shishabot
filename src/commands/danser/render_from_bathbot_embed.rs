@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use command_macros::msg_command;
+use eyre::Context as _;
 use time::{format_description::well_known::Iso8601, OffsetDateTime};
 use twilight_model::{channel::embed::Embed, util::Timestamp};
 
@@ -137,7 +138,11 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     }
 
     let score_id = score_to_render.unwrap().score_id;
-    let replay = ctx.client().get_osu_replay(score_id).await?;
+    let replay = ctx
+        .client()
+        .get_osu_replay(score_id)
+        .await
+        .context("failed to get replay")?;
 
     let input_channel = command.channel_id;
     let user = command.member.as_ref().unwrap().user.as_ref().unwrap().id;
