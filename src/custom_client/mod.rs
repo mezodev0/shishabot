@@ -1,5 +1,6 @@
 use std::{hash::Hash, path::Path};
 
+use crate::core::{replay_queue::ReplaySlim, BotConfig};
 use bytes::Bytes;
 use eyre::{Context as _, Result};
 use http::{header::CONTENT_LENGTH, Response};
@@ -17,8 +18,6 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
-use crate::core::BotConfig;
-
 use self::multipart::Multipart;
 
 mod multipart;
@@ -31,6 +30,7 @@ enum Site {
     DiscordAttachment,
     DownloadChimu,
     DownloadKitsu,
+    OsuApi,
     ShishaMezo,
 }
 
@@ -38,7 +38,7 @@ type Client = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 
 pub struct CustomClient {
     client: Client,
-    ratelimiters: [LeakyBucket; 4],
+    ratelimiters: [LeakyBucket; 5],
     upload: UploadData,
 }
 
@@ -80,6 +80,7 @@ impl CustomClient {
             ratelimiter(2), // DiscordAttachment
             ratelimiter(1), // DownloadChimu
             ratelimiter(1), // DownloadKitsu
+            ratelimiter(1), // OsuApi
             ratelimiter(1), // ShishaMezo
         ];
 
@@ -102,6 +103,36 @@ impl CustomClient {
             .uri(url)
             .method(Method::GET)
             .header(USER_AGENT, MY_USER_AGENT)
+            .body(Body::empty())
+            .context("failed to build GET request")?;
+
+        self.ratelimit(site).await;
+
+        let response = self
+            .client
+            .request(req)
+            .await
+            .context("failed to receive GET response")?;
+
+        Self::error_for_status(response, url).await
+    }
+
+    async fn make_osu_get_request(&self, url: impl AsRef<str>, site: Site) -> Result<Bytes> {
+        let url = url.as_ref();
+        trace!("GET request to url {url}");
+
+        let req = Request::builder()
+            .uri(url)
+            .method(Method::GET)
+            .header(USER_AGENT, MY_USER_AGENT)
+            .header(
+                hyper::header::COOKIE,
+                format!(
+                    "osu_session={};",
+                    BotConfig::get().tokens.osu_session_cookie
+                ),
+            )
+            .header(hyper::header::REFERER, url)
             .body(Body::empty())
             .context("failed to build GET request")?;
 
@@ -162,6 +193,25 @@ impl CustomClient {
         }
     }
 
+    pub async fn get_osu_replay(&self, score_id: u64) -> Result<ReplaySlim> {
+        let bytes = self
+            .make_osu_get_request(
+                format!("https://osu.ppy.sh/scores/osu/{score_id}/download"),
+                Site::OsuApi,
+            )
+            .await?;
+
+        let mut path = BotConfig::get().paths.downloads();
+        path.push(format!("{score_id}.osr"));
+
+        std::fs::write(path.clone(), &bytes)?;
+
+        let replay = osu_db::Replay::from_file(path.as_path())?;
+        let replay_slim = ReplaySlim::from(replay);
+
+        Ok(replay_slim)
+    }
+
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
@@ -209,4 +259,10 @@ impl CustomClient {
 pub struct UploadResponse {
     pub error: u16,
     pub text: String,
+}
+
+#[derive(Deserialize)]
+pub struct OsuReplayResponse {
+    pub content: String,
+    pub encoding: String,
 }

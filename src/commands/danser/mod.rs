@@ -1,8 +1,8 @@
 pub use self::{
-    msg_cmd_test::*, queue::*, render::*, settings::*, setup::*, skin::*, skin_list::*,
+    queue::*, render::*, render_from_bathbot_embed::*, settings::*, setup::*, skin::*, skin_list::*
 };
 
-mod msg_cmd_test;
+mod render_from_bathbot_embed;
 mod queue;
 mod render;
 mod settings;

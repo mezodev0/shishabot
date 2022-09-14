@@ -11,9 +11,9 @@ mod cluster;
 mod config;
 mod context;
 mod events;
-mod replay_queue;
 
 pub mod commands;
 pub mod logging;
+pub mod replay_queue;
 pub mod settings;
 pub mod stats;

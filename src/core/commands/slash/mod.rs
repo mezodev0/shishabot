@@ -54,7 +54,7 @@ impl Commands {
                     Setup => SETUP_SLASH,
                 },
                 msg {
-                    MYTEST,
+                    RENDER_FROM_MSG,
                 }
             }
         })
