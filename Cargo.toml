@@ -5,6 +5,7 @@ authors = ["mezodev0", "MaxOhn <ohn.m@hotmail.de>"]
 edition = "2021"
 
 [dependencies]
+base64 = { version = "0.13.0" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }
 command-macros = { path = "./command-macros" }
@@ -21,13 +22,13 @@ once_cell = { version = "1.0" }
 osu-db = { version = "0.3", default-features = false }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
-rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["metrics", "rkyv"] }
 rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0" }
 smallstr = { version = "0.2", features = ["serde"] }
 smallvec = { version = "1.0", features = ["serde"] }
-time = { version = "0.3", features = ["macros", "parsing"] }
+time = { version = "0.3.14", features = ["macros", "parsing", "formatting"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
