@@ -72,7 +72,7 @@ pub struct Tokens {
     pub discord: String,
     pub osu_client_id: u64,
     pub osu_client_secret: String,
-    pub osu_session_cookie: String,
+    pub osu_api_key: String,
     pub upload_secret: String,
 }
 
@@ -96,7 +96,7 @@ impl BotConfig {
                 discord: env_var("DISCORD_TOKEN")?,
                 osu_client_id: env_var("OSU_CLIENT_ID")?,
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
-                osu_session_cookie: env_var("OSU_SESSION_COOKIE")?,
+                osu_api_key: env_var("OSU_API_KEY")?,
                 upload_secret: env_var("UPLOAD_SECRET")?,
             },
             paths: Paths {
