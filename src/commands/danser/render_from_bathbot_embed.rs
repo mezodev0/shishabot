@@ -38,6 +38,7 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         .osu()
         .user_scores(osu_user_id)
         .recent()
+        .include_fails(false)
         .limit(100)
         .await
         .context("failed to get recent scores")?;
@@ -75,11 +76,19 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         }
     };
 
-    let score_id = score_to_render.score_id;
+    let score_id = match score_to_render.score_id {
+        Some(id) => id,
+        None => {
+            let content = "Couldn't find the ID for this score";
+            command.error(&ctx, content).await?;
+
+            return Ok(());
+        }
+    };
 
     let mut replay_bytes = ctx
         .client()
-        .get_raw_replay(score_to_render.score_id)
+        .get_raw_replay(score_id)
         .await
         .context("failed to get replay bytes")?;
 
@@ -223,7 +232,7 @@ fn extend_replay_bytes(bytes: &mut Vec<u8>, score: &Score) {
 
     bytes.rotate_right(bytes_written);
 
-    encode_long(bytes, score.score_id);
+    encode_long(bytes, score.score_id.unwrap_or(0));
 }
 
 fn encode_byte(bytes: &mut Vec<u8>, byte: u8) -> usize {
