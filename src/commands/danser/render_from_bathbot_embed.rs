@@ -1,7 +1,7 @@
 use std::{fs, sync::Arc};
 
 use command_macros::msg_command;
-use eyre::{Context as _, Report};
+use eyre::{Context as _, ContextCompat, Report};
 use osu_db::Replay;
 use rosu_v2::prelude::Score;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
@@ -112,16 +112,11 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     let input_channel = command.channel_id;
     let user = command.user_id()?;
 
+    let guild_id = command.guild_id().context("expected guild id")?;
     let output_channel = ctx
-        .http
-        .create_private_channel(user)
-        .exec()
-        .await
-        .context("failed to create private channel")?
-        .model()
-        .await
-        .context("failed to deserialize private channel")?
-        .id;
+        .guild_settings(guild_id, |server| server.output_channel)
+        .flatten()
+        .unwrap_or(input_channel);
 
     let replay_data = ReplayData {
         input_channel,
