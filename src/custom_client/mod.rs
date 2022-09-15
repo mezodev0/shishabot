@@ -1,6 +1,6 @@
 use std::{hash::Hash, path::Path};
 
-use crate::core::{replay_queue::ReplaySlim, BotConfig};
+use crate::core::BotConfig;
 use bytes::Bytes;
 use eyre::{Context as _, Result};
 use http::{header::CONTENT_LENGTH, Response};
@@ -30,7 +30,7 @@ enum Site {
     DiscordAttachment,
     DownloadChimu,
     DownloadKitsu,
-    OsuApi,
+    OsuReplay,
     ShishaMezo,
 }
 
@@ -80,7 +80,7 @@ impl CustomClient {
             ratelimiter(2), // DiscordAttachment
             ratelimiter(1), // DownloadChimu
             ratelimiter(1), // DownloadKitsu
-            ratelimiter(1), // OsuApi
+            ratelimiter(1), // OsuReplay
             ratelimiter(1), // ShishaMezo
         ];
 
@@ -103,36 +103,6 @@ impl CustomClient {
             .uri(url)
             .method(Method::GET)
             .header(USER_AGENT, MY_USER_AGENT)
-            .body(Body::empty())
-            .context("failed to build GET request")?;
-
-        self.ratelimit(site).await;
-
-        let response = self
-            .client
-            .request(req)
-            .await
-            .context("failed to receive GET response")?;
-
-        Self::error_for_status(response, url).await
-    }
-
-    async fn make_osu_get_request(&self, url: impl AsRef<str>, site: Site) -> Result<Bytes> {
-        let url = url.as_ref();
-        trace!("GET request to url {url}");
-
-        let req = Request::builder()
-            .uri(url)
-            .method(Method::GET)
-            .header(USER_AGENT, MY_USER_AGENT)
-            .header(
-                hyper::header::COOKIE,
-                format!(
-                    "osu_session={};",
-                    BotConfig::get().tokens.osu_session_cookie
-                ),
-            )
-            .header(hyper::header::REFERER, url)
             .body(Body::empty())
             .context("failed to build GET request")?;
 
@@ -193,25 +163,26 @@ impl CustomClient {
         }
     }
 
-    pub async fn get_osu_replay(&self, score_id: u64) -> Result<ReplaySlim> {
-        let bytes = self
-            .make_osu_get_request(
-                format!("https://osu.ppy.sh/scores/osu/{score_id}/download"),
-                Site::OsuApi,
-            )
-            .await
-            .context("failed to download osu replay")?;
+    pub async fn get_raw_replay(&self, score_id: u64) -> Result<Vec<u8>> {
+        let url = format!(
+            "https://osu.ppy.sh/api/get_replay?k={api_key}&s={score_id}",
+            api_key = BotConfig::get().tokens.osu_api_key,
+        );
 
-        let mut path = BotConfig::get().paths.downloads();
-        path.push(format!("{score_id}.osr"));
+        #[derive(Deserialize)]
+        struct RawReplay {
+            content: String,
+        }
 
-        std::fs::write(path.clone(), &bytes).context("failed to create replay file")?;
+        let bytes = self.make_get_request(url, Site::OsuReplay).await?;
 
-        let replay =
-            osu_db::Replay::from_file(path.as_path()).context("failed to get replay from file")?;
-        let replay_slim = ReplaySlim::from(replay);
+        let RawReplay { content } = serde_json::from_slice(&bytes).with_context(|| {
+            let text = String::from_utf8_lossy(&bytes);
 
-        Ok(replay_slim)
+            format!("failed to deserialize raw replay: {text}")
+        })?;
+
+        base64::decode(content.into_bytes()).context("failed to decode through base64")
     }
 
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {

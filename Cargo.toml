@@ -17,19 +17,19 @@ futures = { version = "0.3", default-features = false }
 http = { version = "0.2" }
 hyper = { version = "0.14", default-features = false }
 hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
-leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
+leaky-bucket-lite = { version = "0.5" }
 once_cell = { version = "1.0" }
 osu-db = { version = "0.3", default-features = false }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
-rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["metrics", "rkyv"] }
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", default-features = false }
 rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }
-serde = { version = "1.0", features = ["derive", "rc"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallstr = { version = "0.2", features = ["serde"] }
 smallvec = { version = "1.0", features = ["serde"] }
 time = { version = "0.3.14", features = ["macros", "parsing", "formatting"] }
-tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
