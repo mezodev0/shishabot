@@ -1,12 +1,11 @@
-use std::{fs, str::FromStr, sync::Arc};
+use std::{fs, sync::Arc};
 
 use command_macros::msg_command;
 use eyre::{Context as _, Report};
 use osu_db::Replay;
 use rosu_v2::prelude::Score;
-use time::{
-    format_description::well_known::Iso8601, Date, OffsetDateTime, PrimitiveDateTime, Time,
-};
+use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
+use twilight_interactions::command::CommandInputData;
 use twilight_model::{channel::embed::Embed, util::Timestamp};
 
 use crate::{
@@ -18,93 +17,16 @@ use crate::{
 
 #[msg_command(name = "Render score", dm_permission = false)]
 async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let resolved = match command.input_data().resolved {
-        Some(resolved) => resolved,
+    let input_data = command.input_data();
+
+    let (osu_user_id, timestamp) = match parse_embed(&input_data) {
+        Some(ParsedEmbed { user_id, timestamp }) => (user_id, timestamp),
         None => {
-            command.error(&ctx, "?").await?;
+            let content = "The command can only be used on Bathbot **/rs** embeds!";
+            command.error(&ctx, content).await?;
+
             return Ok(());
         }
-    };
-
-    let message = match resolved.messages.values().next() {
-        Some(message) => message,
-        None => {
-            command
-                .error(
-                    &ctx,
-                    "The command can only be used on Bathbot **/rs** embeds!",
-                )
-                .await?;
-            return Ok(());
-        }
-    };
-
-    let embed = match message.embeds.first() {
-        Some(embed) => embed,
-        None => {
-            command
-                .error(
-                    &ctx,
-                    "The command can only be used on Bathbot **/rs** embeds!",
-                )
-                .await?;
-            return Ok(());
-        }
-    };
-
-    let osu_user_url = match embed.author.as_ref().and_then(|a| a.url.as_ref()) {
-        Some(url) => url,
-        None => {
-            command
-                .error(
-                    &ctx,
-                    "The command can only be used on Bathbot **/rs** embeds!",
-                )
-                .await?;
-            return Ok(());
-        }
-    };
-
-    let osu_user_id = match osu_user_url.split('/').nth(4) {
-        Some(id) => match id.parse::<u32>() {
-            Ok(id) => id,
-            Err(_) => {
-                command
-                    .error(
-                        &ctx,
-                        "The command can only be used on Bathbot **/rs** embeds!",
-                    )
-                    .await?;
-                return Ok(());
-            }
-        },
-        None => {
-            command
-                .error(
-                    &ctx,
-                    "The command can only be used on Bathbot **/rs** embeds!",
-                )
-                .await?;
-            return Ok(());
-        }
-    };
-
-    let timestamp = match embed.timestamp {
-        // Config set embeds to 'Always Maximized' or 'Initially Maximized'
-        Some(timestamp) => timestamp,
-        // Config set embeds to 'Always Minimized'
-        None => match get_timestamp_from_minimized_embed(embed) {
-            Some(timestamp) => timestamp,
-            None => {
-                command
-                    .error(
-                        &ctx,
-                        "The command can only be used on Bathbot **/rs** embeds!",
-                    )
-                    .await?;
-                return Ok(());
-            }
-        },
     };
 
     let ts_unix = OffsetDateTime::from_unix_timestamp(timestamp.as_secs())
@@ -209,10 +131,36 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     Ok(())
 }
 
+struct ParsedEmbed {
+    user_id: u32,
+    timestamp: Timestamp,
+}
+
+fn parse_embed(input_data: &CommandInputData<'_>) -> Option<ParsedEmbed> {
+    let embed = input_data
+        .resolved
+        .as_ref()
+        .and_then(|resolved| resolved.messages.values().next())
+        .and_then(|msg| msg.embeds.first())?;
+
+    let user_url = embed.author.as_ref().and_then(|a| a.url.as_ref())?;
+
+    let user_id = user_url
+        .split('/')
+        .nth(4)
+        .and_then(|id| id.parse::<u32>().ok())?;
+
+    let timestamp = embed
+        .timestamp
+        .or_else(|| get_timestamp_from_minimized_embed(embed))?;
+
+    Some(ParsedEmbed { user_id, timestamp })
+}
+
 fn get_timestamp_from_minimized_embed(embed: &Embed) -> Option<Timestamp> {
     let field = embed.fields.first()?;
 
-    let discord_timestamp = field.name.split('\t').last()?;
+    let discord_timestamp = field.name.rsplit('\t').next()?;
 
     let actual_timestamp_value = discord_timestamp
         .trim_start_matches("<t:")
@@ -220,20 +168,7 @@ fn get_timestamp_from_minimized_embed(embed: &Embed) -> Option<Timestamp> {
 
     let timestamp_value_as_int = actual_timestamp_value.parse().ok()?;
 
-    let datetime = match time::OffsetDateTime::from_unix_timestamp(timestamp_value_as_int) {
-        Ok(datetime) => datetime,
-        Err(_) => return None,
-    };
-
-    let datetime_formatted = match datetime.format(&Iso8601::DEFAULT) {
-        Ok(datetime_formatted) => datetime_formatted,
-        Err(_) => return None,
-    };
-
-    match Timestamp::from_str(&datetime_formatted) {
-        Ok(timestamp) => Some(timestamp),
-        Err(_) => None,
-    }
+    Timestamp::from_secs(timestamp_value_as_int).ok()
 }
 
 // https://osu.ppy.sh/wiki/en/Client/File_formats/Osr_%28file_format%29
