@@ -111,7 +111,10 @@ pub async fn add(
         return Err(err);
     }
 
-    if !(PathBuf::from(format!("{skin_file:?}/skin.ini")).exists() || move_directory(&skin_file)?) {
+    let mut skin_ini_path = skin_file.clone();
+    skin_ini_path.push("skin.ini");
+
+    if !(PathBuf::from(skin_ini_path).exists() || move_directory(&skin_file)?) {
         let content = "There was an error getting the folder containing the skin elements! \
             Try re-exporting the skin!";
         command.error(&ctx, content).await?;
@@ -150,7 +153,6 @@ fn move_directory(to: &PathBuf) -> Result<bool> {
     if copy_all(from, to).is_ok() && case_insensitive_exists(&skin_ini)? {
         fs::remove_dir_all(inner_folder.path())
             .with_context(|| format!("failed to remove directory at {:?}", inner_folder.path()))?;
-
         Ok(true)
     } else {
         Ok(false)
