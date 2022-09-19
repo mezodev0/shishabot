@@ -6,6 +6,7 @@ use std::{
 };
 
 use eyre::{Context as _, ContextCompat, Report, Result};
+use tokio::fs;
 use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
@@ -113,7 +114,11 @@ pub async fn edit(
     } else {
         let mut default_path = danser_path.to_owned();
         default_path.push("settings/default.json");
-        let file = File::open(default_path).context("failed to open default settings file")?;
+        fs::copy(&default_path, &user_path)
+            .await
+            .context("failed to copy default danser settings")?;
+
+        let file = File::open(&user_path).context("failed to open default settings file")?;
 
         serde_json::from_reader(file).context("failed to deserialize default settings file")?
     };
