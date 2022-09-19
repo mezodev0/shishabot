@@ -94,8 +94,22 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     extend_replay_bytes(&mut replay_bytes, &score_to_render);
 
+    let replay_user = score_to_render.user;
+
+    let osu_user = match replay_user {
+        Some(replay_user) => replay_user.username,
+        None => "<unknown user>".into(),
+    };
+
+    let replay_mapset = score_to_render.mapset;
+
+    let map_title = match replay_mapset {
+        Some(replay_mapset) => replay_mapset.title,
+        None => "<unknown map>".into(),
+    };
+
     let mut path = BotConfig::get().paths.downloads();
-    path.push(format!("{score_id}.osr"));
+    path.push(format!("{osu_user} - {map_title}.osr"));
 
     fs::write(&path, &replay_bytes).context("failed to write into replay file")?;
 
