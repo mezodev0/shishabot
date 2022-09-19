@@ -132,6 +132,7 @@ pub struct DanserSettings {
     pub objects: Objects,
     pub playfield: Playfield,
     pub cursor_dance: CursorDance,
+    pub knockout: Knockout,
     pub recording: Recording,
 }
 
@@ -140,8 +141,10 @@ pub struct DanserSettings {
 pub struct General {
     pub osu_songs_dir: String,
     pub osu_skins_dir: String,
+    pub osu_replays_dir: String,
     pub discord_presence_on: bool,
     pub unpack_osz_files: bool,
+    pub verbose_import_logs: bool,
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -202,6 +205,7 @@ pub struct Input {
     pub right_key: String,
     pub restart_key: String,
     pub smoke_key: String,
+    pub screenshot_key: String,
     pub mouse_buttons_disabled: bool,
     pub mouse_high_precision: bool,
     pub mouse_sensitivity: f64,
@@ -358,9 +362,18 @@ pub struct HitCounter {
     pub xposition: f64,
     #[serde(rename = "YPosition")]
     pub yposition: f64,
-    pub color: Vec<Hsv>,
-    pub spacing: f64,
-    pub font_scale: f64,
+    #[serde(rename = "Color300")]
+    pub color_300: Hsv,
+    #[serde(rename = "Color100")]
+    pub color_100: Hsv,
+    #[serde(rename = "Color50")]
+    pub color_50: Hsv,
+    #[serde(rename = "ColorMiss")]
+    pub color_miss: Hsv,
+    #[serde(rename = "ColorSB")]
+    pub color_sb: Hsv,
+    pub spacing: i64,
+    pub font_scale: i64,
     pub align: String,
     pub value_align: String,
     pub vertical: bool,
@@ -443,9 +456,10 @@ pub struct Boundaries {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Underlay {
-    #[serde(rename = "AboveHpBar")]
-    above_hp_bar: bool,
+    pub path: String,
+    pub above_hp_bar: bool,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -624,6 +638,7 @@ pub struct Playfield {
     pub shift_y: f64,
     pub shift_x: f64,
     pub scale_storyboard_with_playfield: bool,
+    pub move_storyboard_with_playfield: bool,
     pub lead_in_time: f64,
     pub lead_in_hold: f64,
     pub fade_out_time: f64,
@@ -663,6 +678,7 @@ pub struct Dim {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Parallax {
+    pub enabled: bool,
     pub amount: f64,
     pub speed: f64,
 }
@@ -697,6 +713,7 @@ pub struct Triangles {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Logo {
+    pub enabled: bool,
     pub draw_spectrum: bool,
     pub dim: Dim,
 }
@@ -733,10 +750,12 @@ pub struct Mover {
     pub random_slider_dance: bool,
 }
 
-#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Spinner {
     pub mover: String,
+    pub center_offset_x: f64,
+    pub center_offset_y: f64,
     pub radius: i64,
 }
 
@@ -821,7 +840,27 @@ pub struct Linear {
 pub struct Pippi {
     pub rotation_speed: f64,
     pub radius_multiplier: f64,
-    pub spinner_radius: f64,
+    pub spinner_radius: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Knockout {
+    pub mode: u8,
+    pub grace_end_time: i32,
+    pub bubble_minimum_combo: u32,
+    pub exclude_mods: String,
+    pub hide_mods: String,
+    pub max_players: u32,
+    pub min_players: u32,
+    pub revive_players_at_end: bool,
+    pub live_sort: bool,
+    pub sort_by: String,
+    pub hide_overlay_on_breaks: bool,
+    pub min_cursor_size: f64,
+    pub max_cursor_size: f64,
+    pub add_danser: bool,
+    pub danser_name: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
