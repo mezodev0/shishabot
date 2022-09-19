@@ -114,7 +114,7 @@ pub async fn add(
     let mut skin_ini_path = skin_file.clone();
     skin_ini_path.push("skin.ini");
 
-    if !(PathBuf::from(skin_ini_path).exists() || move_directory(&skin_file)?) {
+    if !(skin_ini_path.exists() || move_directory(&skin_file)?) {
         let content = "There was an error getting the folder containing the skin elements! \
             Try re-exporting the skin!";
         command.error(&ctx, content).await?;
