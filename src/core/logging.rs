@@ -22,9 +22,9 @@ use tracing_subscriber::{
 };
 
 pub fn init() -> WorkerGuard {
-    // Displays ERROR, WARN, INFO, and DEBUG from shishabot
-    // and ERROR, WARN, INFO from dependencies
-    let stdout_filter: EnvFilter = "shishabot=debug,info".parse().unwrap();
+    // Displays ERROR, WARN, and INFO from shishabot
+    // and ERROR and WARN from dependencies
+    let stdout_filter: EnvFilter = "shishabot=info,warn".parse().unwrap();
 
     let stdout_layer = Layer::default()
         .event_format(StdoutEventFormat::default())
