@@ -32,19 +32,29 @@ impl ReplayQueue {
     }
 
     pub async fn peek(&self) -> ReplayData {
+        trace!("Locking channel receiver...");
         let mut guard = self.rx.lock().await;
+        trace!("Locked receiver, awaiting entry...");
         let _ = guard.recv().await;
+        trace!("Received entry, locking queue...");
+        let queue_guard = self.queue.lock().await;
+        trace!("Locked queue");
 
-        self.queue.lock().await.front().unwrap().to_owned()
+        queue_guard.front().unwrap().to_owned()
     }
 
     pub async fn set_status(&self, status: ReplayStatus) {
+        trace!("Updating progress status to {status:?}...");
         *self.status.lock().await = status;
+        trace!("Updated progress status");
     }
 
     pub async fn reset_peek(&self) {
+        trace!("Resetting peek...");
         *self.status.lock().await = ReplayStatus::Waiting;
+        trace!("Peek reset, popping queue...");
         let _ = self.pop().await;
+        trace!("Popped queue");
     }
 }
 

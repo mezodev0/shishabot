@@ -164,6 +164,8 @@ impl ReplayQueue {
                     tokio::select! {
                         _ = read_danser_progress(&ctx, reader) => unreachable!(),
                         child_res = child.wait() => {
+                            trace!("Danser finished, stopped checking its logs");
+
                             if let Err(err) = child_res {
                                 let err = Report::from(err).wrap_err("failed to run danser command");
                                 warn!("{err:?}");
@@ -178,9 +180,13 @@ impl ReplayQueue {
                             if let Some(mut stderr) = child.stderr {
                                 let mut res = String::new();
 
+                                trace!("Reading danser stderr...");
+
                                 if stderr.read_to_string(&mut res).await.is_ok() {
                                     warn!("danser stderr: {res}");
                                 }
+
+                                trace!("Finished danser stderr");
                             }
                         },
                     }
@@ -294,11 +300,37 @@ async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) {
         let mut lines = reader.lines();
         let mut started_encoding = false;
 
-        while let Some(line) = lines
-            .next_line()
-            .await
-            .context("failed to read line of danser's stdout")?
-        {
+        trace!("Start reading danser logs...");
+
+        loop {
+            trace!("Next danser log line...");
+
+            let line_opt = lines
+                .next_line()
+                .await
+                .context("failed to read line of danser's stdout")?;
+
+            let line_prefix = line_opt
+                .as_deref()
+                .map(std::borrow::Cow::Borrowed)
+                .map(|mut line| {
+                    if line.len() > 25 {
+                        let line = line.to_mut();
+                        line.truncate(25);
+                        line.push_str("...");
+                    }
+
+                    line
+                })
+                .unwrap_or(std::borrow::Cow::Borrowed("<no line>"));
+
+            trace!("Got danser log line: {line_prefix}");
+
+            let line = match line_opt {
+                Some(line) => line,
+                None => break,
+            };
+
             if let Some(idx) = line.find("Progress: ").map(|idx| idx + 10) {
                 if let Some(end) = line[idx..].find('%') {
                     if let Ok(progress) = line[idx..idx + end].parse() {
