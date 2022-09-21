@@ -36,7 +36,7 @@ pub struct SkinAdd {
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "remove")]
-/// Add a skin to the skinlist
+/// Remove a skin to the skinlist
 pub struct SkinRemove {
     /// Index of the skin that you want to remove
     #[command(min_value = 0, max_value = 65_535)]

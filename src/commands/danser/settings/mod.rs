@@ -127,7 +127,7 @@ pub struct SettingsEdit {
     /// Whether the aim error meter should be displayed
     aim_error_meter: Option<Visibility>,
     #[command(min_value = 0, max_value = 3)]
-    /// How many decimal place sthe aim error UR should have
+    /// How many decimal places the aim error UR should have
     aim_error_decimals: Option<u32>,
     /// Whether the hit counter should be displayed
     hit_counter: Option<Visibility>,
