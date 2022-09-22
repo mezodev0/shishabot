@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     error::Error as StdError,
     ffi::OsStr,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -315,8 +314,7 @@ async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) {
             let trimmed_line = line_opt
                 .as_deref()
                 .map(str::trim_end)
-                .filter(|line| !line.is_empty())
-                .map(Cow::Borrowed);
+                .filter(|line| !line.is_empty());
 
             if let Some(line) = trimmed_line {
                 debug!("[DANSER]: {line}");
