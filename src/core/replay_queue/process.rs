@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     error::Error as StdError,
     ffi::OsStr,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -139,6 +140,7 @@ impl ReplayQueue {
                 .arg("-quickstart")
                 .arg("-out")
                 .arg(filename)
+                .arg("-preciseprogress")
                 .stderr(Stdio::piped())
                 .stdout(Stdio::piped());
 
@@ -310,25 +312,19 @@ async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) {
                 .await
                 .context("failed to read line of danser's stdout")?;
 
-            let line_prefix = line_opt
+            let trimmed_line = line_opt
                 .as_deref()
-                .map(std::borrow::Cow::Borrowed)
-                .map(|mut line| {
-                    if line.len() > 25 {
-                        let line = line.to_mut();
-                        line.truncate(25);
-                        line.push_str("...");
-                    }
+                .map(str::trim_end)
+                .filter(|line| !line.is_empty())
+                .map(Cow::Borrowed);
 
-                    line
-                })
-                .unwrap_or(std::borrow::Cow::Borrowed("<no line>"));
-
-            trace!("Got danser log line: {line_prefix}");
+            if let Some(line) = trimmed_line {
+                debug!("[DANSER]: {line}");
+            }
 
             let line = match line_opt {
                 Some(line) => line,
-                None => break,
+                None => return Ok(()),
             };
 
             if let Some(idx) = line.find("Progress: ").map(|idx| idx + 10) {
@@ -351,13 +347,13 @@ async fn read_danser_progress(ctx: &Context, reader: BufReader<ChildStdout>) {
                 ctx.replay_queue.set_status(status).await;
             }
         }
-
-        Ok(())
     }
 
     if let Err(err) = inner(ctx, reader).await {
         error!("{err:?}");
     }
+
+    warn!("Stopped reading danser logs");
 
     future::pending::<()>().await;
 
