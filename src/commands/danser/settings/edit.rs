@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-use super::{create_settings_embed, SettingsEdit, SettingsEditAutocomplete, Visibility};
+use super::{create_settings_embed, SettingsEdit, SettingsEditAutocomplete, State, Visibility};
 
 pub async fn edit(
     ctx: Arc<Context>,
@@ -27,12 +27,6 @@ pub async fn edit(
     let args: SettingsEdit = match args.try_into() {
         Ok(args) => args,
         Err(autocomplete) => {
-            if autocomplete.is_empty() {
-                command.autocomplete(&ctx, Vec::new()).await?;
-
-                return Ok(());
-            }
-
             let no_underscores = autocomplete.cow_replace('_', " ");
             let skin = no_underscores.cow_to_ascii_lowercase();
 
@@ -224,6 +218,7 @@ fn modify_settings(
         hit_counter,
         sliderbreaks,
         strain_graph,
+        key_overlay,
     } = args;
 
     let mut changed = false;
@@ -298,10 +293,23 @@ fn modify_settings(
         };
     }
 
-    macro_rules! assign_reverse_cmp {
+    macro_rules! assign_state {
         ($changed:ident: $($new:ident ~ $field:expr;)*) => {
             $(
-                if let Some($new) = $new {
+                if let Some($new) = $new.map(|vis| matches!(vis, State::Enabled)) {
+                    if $field != $new {
+                        $field = $new;
+                        $changed = true;
+                    }
+                }
+            )*
+        };
+    }
+
+    macro_rules! assign_reverse_state_cmp {
+        ($changed:ident: $($new:ident ~ $field:expr;)*) => {
+            $(
+                if let Some($new) = $new.map(|vis| matches!(vis, State::Enabled)) {
                     if $field != !$new {
                         $field = !$new;
                         $changed = true;
@@ -344,16 +352,12 @@ fn modify_settings(
     };
 
     assign_cmp! { changed:
-        cursor_ripples ~ settings.cursor.cursor_ripples;
-        leaderboard ~ settings.gameplay.score_board.show;
-        storyboard ~ settings.playfield.background.load_storyboards;
-        video ~ settings.playfield.background.load_videos;
         pp_decimals ~ settings.gameplay.pp_counter.decimals;
         hit_error_decimals ~ settings.gameplay.hit_error_meter.unstable_rate_decimals;
         aim_error_decimals ~ settings.gameplay.aim_error_meter.unstable_rate_decimals;
     }
 
-    assign_reverse_cmp! { changed:
+    assign_reverse_state_cmp! { changed:
         beatmap_hitsounds ~ settings.audio.ignore_beatmap_samples;
     }
 
@@ -364,6 +368,15 @@ fn modify_settings(
         hit_counter ~ settings.gameplay.hit_counter.show;
         sliderbreaks ~ settings.gameplay.hit_counter.show_sliderbreaks;
         strain_graph ~ settings.gameplay.strain_graph.show;
+        cursor_ripples ~ settings.cursor.cursor_ripples;
+        leaderboard ~ settings.gameplay.score_board.show;
+        key_overlay ~ settings.gameplay.key_overlay.show;
+    }
+
+    assign_state! { changed:
+        storyboard ~ settings.playfield.background.load_storyboards;
+        video ~ settings.playfield.background.load_videos;
+
     }
 
     assign_percent! { changed:
