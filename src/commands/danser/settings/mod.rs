@@ -96,13 +96,13 @@ pub struct SettingsEdit {
     /// Scale the size of the cursor
     cursor_scale: Option<f64>,
     /// Whether the cursor should generate ripples
-    cursor_ripples: Option<bool>,
+    cursor_ripples: Option<Visibility>,
     /// Whether the leaderboard should be displayed
-    leaderboard: Option<bool>,
+    leaderboard: Option<Visibility>,
     /// Whether the storyboard should play
-    storyboard: Option<bool>,
+    storyboard: Option<State>,
     /// Whether the video should play
-    video: Option<bool>,
+    video: Option<State>,
     #[command(min_value = 0, max_value = 100)]
     /// Percent background dim
     dim: Option<u8>,
@@ -113,7 +113,7 @@ pub struct SettingsEdit {
     /// Percent hitsound volume
     hitsound_volume: Option<u8>,
     /// Whether the beatmap's hitsounds should be used
-    beatmap_hitsounds: Option<bool>,
+    beatmap_hitsounds: Option<State>,
     /// Whether pp should be displayed
     pp: Option<Visibility>,
     #[command(min_value = 0, max_value = 3)]
@@ -135,6 +135,8 @@ pub struct SettingsEdit {
     sliderbreaks: Option<Visibility>,
     /// Whether the strain graph should be displayed
     strain_graph: Option<Visibility>,
+    /// Wether the key overlay should be displayed
+    key_overlay: Option<Visibility>,
 }
 
 impl TryFrom<SettingsEditAutocomplete> for SettingsEdit {
@@ -163,6 +165,7 @@ impl TryFrom<SettingsEditAutocomplete> for SettingsEdit {
             hit_counter,
             sliderbreaks,
             strain_graph,
+            key_overlay,
         } = edit;
 
         let skin = match skin {
@@ -192,6 +195,7 @@ impl TryFrom<SettingsEditAutocomplete> for SettingsEdit {
             hit_counter,
             sliderbreaks,
             strain_graph,
+            key_overlay,
         };
 
         Ok(edit)
@@ -204,14 +208,14 @@ pub struct SettingsEditAutocomplete {
     file: Option<Attachment>,
     skin: AutocompleteValue<String>,
     cursor_scale: Option<f64>,
-    cursor_ripples: Option<bool>,
-    leaderboard: Option<bool>,
-    storyboard: Option<bool>,
-    video: Option<bool>,
+    cursor_ripples: Option<Visibility>,
+    leaderboard: Option<Visibility>,
+    storyboard: Option<State>,
+    video: Option<State>,
     dim: Option<u8>,
     music_volume: Option<u8>,
     hitsound_volume: Option<u8>,
-    beatmap_hitsounds: Option<bool>,
+    beatmap_hitsounds: Option<State>,
     pp: Option<Visibility>,
     pp_decimals: Option<u32>,
     hit_error_meter: Option<Visibility>,
@@ -221,6 +225,7 @@ pub struct SettingsEditAutocomplete {
     hit_counter: Option<Visibility>,
     sliderbreaks: Option<Visibility>,
     strain_graph: Option<Visibility>,
+    key_overlay: Option<Visibility>,
 }
 
 #[derive(CreateOption, CommandOption)]
@@ -229,6 +234,14 @@ pub enum Visibility {
     Show,
     #[option(name = "Hide", value = "hide")]
     Hide,
+}
+
+#[derive(CreateOption, CommandOption)]
+pub enum State {
+    #[option(name = "Enabled", value = "enabled")]
+    Enabled,
+    #[option(name = "Disabled", value = "disabled")]
+    Disabled,
 }
 
 #[derive(CreateCommand, CommandModel)]
@@ -270,16 +283,24 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
             value: format!(
                 "`storyboard`: {}\n\
                 `video`: {}\n\
-                `dim`: {}\n\
-                `leaderboard`: {}",
+                `dim`: {}",
                 on_off(settings.playfield.background.load_storyboards),
                 on_off(settings.playfield.background.load_videos),
                 percent(settings.playfield.background.dim.normal),
-                on_off(settings.gameplay.score_board.show),
             ),
         },
         EmbedField {
             inline: true,
+            name: "Gameplay".to_owned(),
+            value: format!(
+                "`leaderboard`: {}\n\
+                `key overlay`: {}",
+                on_off(settings.gameplay.score_board.show),
+                on_off(settings.gameplay.key_overlay.show),
+            ),
+        },
+        EmbedField {
+            inline: false,
             name: "Audio".to_owned(),
             value: format!(
                 "`music volume`: {}\n\
@@ -291,7 +312,7 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
             ),
         },
         EmbedField {
-            inline: false,
+            inline: true,
             name: "Cursor".to_owned(),
             value: format!(
                 "`cursor scale`: {}\n\
@@ -311,7 +332,7 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
             ),
         },
         EmbedField {
-            inline: true,
+            inline: false,
             name: "Hit Counter".to_owned(),
             value: format!(
                 "`show hit counter`: {}\n\
@@ -321,7 +342,7 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
             ),
         },
         EmbedField {
-            inline: false,
+            inline: true,
             name: "Strain Graph".to_owned(),
             value: format!(
                 "`show strain graph`: {}",
@@ -339,7 +360,7 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
             ),
         },
         EmbedField {
-            inline: true,
+            inline: false,
             name: "Aim Error Meter".to_owned(),
             value: format!(
                 "`show aim error meter`: {}\n\
