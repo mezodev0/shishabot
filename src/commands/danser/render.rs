@@ -19,7 +19,7 @@ use crate::{
 #[flags(SKIP_DEFER)]
 /// Render a replay file and upload it
 pub struct Render {
-    #[command(name = "replay")]
+    #[command(rename = "replay")]
     /// Specify the replay through a .osr file
     attachment: Attachment,
     #[command(min_value = 0, max_value = 65_535)]
