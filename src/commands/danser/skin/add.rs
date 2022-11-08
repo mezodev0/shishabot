@@ -12,7 +12,9 @@ use zip::ZipArchive;
 use crate::{
     core::{BotConfig, Context as TwilightContext},
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, NOT_OWNER},
+        interaction::InteractionCommand,
         InteractionCommandExt,
     },
 };
@@ -24,6 +26,21 @@ pub async fn add(
     command: InteractionCommand,
     args: SkinAdd,
 ) -> Result<()> {
+    let config = BotConfig::get();
+
+    let user = match &command.user {
+        Some(user) => user,
+        None => {
+            command.error_callback(&ctx, GENERAL_ISSUE, false).await?;
+            return Ok(());
+        }
+    };
+
+    if !config.owners.contains(&user.id) {
+        command.error_callback(&ctx, NOT_OWNER, true).await?;
+        return Ok(());
+    }
+
     let SkinAdd { skin } = args;
 
     let filename = match skin.filename.rsplit_once('.') {
@@ -114,7 +131,7 @@ pub async fn add(
     let mut skin_ini_path = skin_file.clone();
     skin_ini_path.push("skin.ini");
 
-    if !(skin_ini_path.exists() || move_directory(&skin_file)?) {
+    if !(case_insensitive_exists(skin_ini_path)? || move_directory(&skin_file)?) {
         let content = "There was an error getting the folder containing the skin elements! \
             Try re-exporting the skin!";
         command.error(&ctx, content).await?;
