@@ -207,6 +207,8 @@ impl CustomClient {
         title: &str,
         author: Id<UserMarker>,
         path: impl AsRef<Path>,
+        beatmap: &str,
+        hash: &str,
     ) -> Result<UploadResponse> {
         let form = Multipart::new()
             .push_file("video", path)
@@ -214,7 +216,9 @@ impl CustomClient {
             .context("failed to create multipart form")?
             .push_text("title", title)
             .push_text("author", author)
-            .push_text("secret", self.upload.secret);
+            .push_text("secret", self.upload.secret)
+            .push_text("hash", hash)
+            .push_text("beatmap", beatmap);
 
         let bytes = self
             .make_post_request(self.upload.url, Site::ShishaMezo, form)

@@ -4,7 +4,12 @@ use eyre::{Context as _, Result};
 
 use crate::{
     core::{BotConfig, Context},
-    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
+    util::{
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, NOT_OWNER},
+        interaction::InteractionCommand,
+        InteractionCommandExt,
+    },
 };
 
 use super::SkinRemove;
@@ -14,6 +19,21 @@ pub async fn remove(
     command: InteractionCommand,
     args: SkinRemove,
 ) -> Result<()> {
+    let config = BotConfig::get();
+
+    let user = match &command.user {
+        Some(user) => user,
+        None => {
+            command.error_callback(&ctx, GENERAL_ISSUE, false).await?;
+            return Ok(());
+        }
+    };
+
+    if !config.owners.contains(&user.id) {
+        command.error_callback(&ctx, NOT_OWNER, true).await?;
+        return Ok(());
+    }
+
     let SkinRemove { index } = args;
 
     let skin_path = BotConfig::get().paths.skins();

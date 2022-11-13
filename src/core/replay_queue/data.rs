@@ -88,6 +88,7 @@ pub struct ReplaySlim {
     pub max_combo: u16,
     pub mods: u32,
     pub player_name: Option<String>,
+    pub replay_hash: Option<String>,
 }
 
 impl ReplaySlim {
@@ -120,6 +121,7 @@ impl From<Replay> for ReplaySlim {
             max_combo: replay.max_combo,
             mods: replay.mods.bits(),
             player_name: replay.player_name,
+            replay_hash: replay.replay_hash,
         }
     }
 }
