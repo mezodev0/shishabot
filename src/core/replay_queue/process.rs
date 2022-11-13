@@ -34,7 +34,6 @@ impl ReplayQueue {
 
     async fn async_process(ctx: Arc<Context>) {
         let config = BotConfig::get();
-
         let mut danser_path = config.paths.danser().to_owned();
         danser_path.push("danser");
 
@@ -47,6 +46,19 @@ impl ReplayQueue {
                 time_points,
                 user,
             } = ctx.replay_queue.peek().await;
+
+            let replay_hash = match replay.replay_hash.as_deref() {
+                Some(replay_hash) => replay_hash,
+                None => {
+                    warn!("replay without replay hash");
+
+                    let content = "Could not get the replay hash";
+                    let _ = input_channel.error(&ctx, content).await;
+
+                    ctx.replay_queue.reset_peek().await;
+                    continue;
+                }
+            };
 
             let mapset_id = match replay.beatmap_hash.as_deref() {
                 Some(hash) => match ctx.osu().beatmap().checksum(hash).await {
@@ -84,7 +96,6 @@ impl ReplayQueue {
                     continue;
                 }
             };
-
             info!("Started map download");
             ctx.replay_queue.set_status(ReplayStatus::Downloading).await;
 
@@ -255,7 +266,10 @@ impl ReplayQueue {
             info!("Started upload to shisha.mezo.xyz");
             ctx.replay_queue.set_status(ReplayStatus::Uploading).await;
 
-            let upload_fut = ctx.client().upload_video(&video_title, user, file_path);
+            let beatmap_link = &format!("https://osu.ppy.sh/beatmapsets/{}", &mapset_id);
+            let upload_fut =
+                ctx.client()
+                    .upload_video(&video_title, user, file_path, beatmap_link, replay_hash);
 
             let link = match upload_fut.await {
                 Ok(res) if res.error == 1 => {
