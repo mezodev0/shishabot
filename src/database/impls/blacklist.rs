@@ -5,23 +5,20 @@ use twilight_model::id::{marker::GuildMarker, Id};
 use crate::database::Database;
 
 impl Database {
-    pub async fn blacklist_server(
-        &self,
-        guild_id: Id<GuildMarker>,
-        reason: Option<&str>,
-    ) -> Result<()> {
+    pub async fn blacklist_server(&self, guild_id: u64, reason: Option<String>) -> Result<()> {
         let query = sqlx::query(
             "
-INSERT INTO blacklisted_servers (server_id, reason) 
+INSERT INTO blacklisted_servers (guild_id, reason) 
 VALUES 
-  ($1, $2) ON CONFLICT (server_id) DO 
+  ($1, $2) ON CONFLICT (guild_id) 
+  DO 
 UPDATE 
 SET 
-  reason = EXCLUDED.reason || ';' || blacklisted_server.reason",
+  reason = EXCLUDED.reason",
         );
 
         query
-            .bind(guild_id.get() as i64)
+            .bind(guild_id as i64)
             .bind(reason)
             .execute(&self.pool)
             .await
@@ -30,7 +27,7 @@ SET
         Ok(())
     }
 
-    pub async fn is_server_blacklisted(&self, guild_id: Id<GuildMarker>) -> Result<bool> {
+    pub async fn _is_server_blacklisted(&self, guild_id: Id<GuildMarker>) -> Result<bool> {
         let query = sqlx::query(
             "
 SELECT 
