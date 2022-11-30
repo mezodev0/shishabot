@@ -1,10 +1,9 @@
-pub use self::{
-    queue::*, render::*, render_from_bathbot_embed::*, settings::*, setup::*, skin::*
-};
+pub use self::{queue::*, render::*, render_score::*, settings::*, setup::*, skin::*, test::*};
 
-mod render_from_bathbot_embed;
 mod queue;
 mod render;
+mod render_score;
 mod settings;
 mod setup;
 mod skin;
+mod test;

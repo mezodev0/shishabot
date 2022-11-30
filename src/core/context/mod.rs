@@ -16,7 +16,7 @@ use twilight_model::{
 use twilight_standby::Standby;
 
 use crate::{
-    core::BotConfig, custom_client::CustomClient, pagination::Pagination,
+    core::BotConfig, custom_client::CustomClient, database::Database, pagination::Pagination,
     util::hasher::IntBuildHasher,
 };
 
@@ -48,6 +48,10 @@ impl Context {
 
     pub fn osu(&self) -> &Osu {
         &self.clients.osu
+    }
+
+    pub fn psql(&self) -> &Database {
+        &self.clients.psql
     }
 
     pub fn client(&self) -> &CustomClient {
@@ -96,6 +100,10 @@ impl Context {
             current_user.name, current_user.discriminator
         );
 
+        // Connect to psql database
+        let psql =
+            Database::new(&config.database_url).wrap_err("failed to create database client")?;
+
         // Connect to osu! API
         let osu_client_id = config.tokens.osu_client_id;
         let osu_client_secret = &config.tokens.osu_client_secret;
@@ -106,7 +114,7 @@ impl Context {
         let (cache, resume_data) = Cache::new().await;
         let stats = Arc::new(BotStats::new());
 
-        let clients = Clients::new(osu, custom);
+        let clients = Clients::new(osu, custom, psql);
         let (cluster, events) =
             build_cluster(discord_token, Arc::clone(&http), resume_data).await?;
 
@@ -133,11 +141,12 @@ impl Context {
 struct Clients {
     custom: CustomClient,
     osu: Osu,
+    psql: Database,
 }
 
 impl Clients {
-    fn new(osu: Osu, custom: CustomClient) -> Self {
-        Self { osu, custom }
+    fn new(osu: Osu, custom: CustomClient, psql: Database) -> Self {
+        Self { osu, custom, psql }
     }
 }
 

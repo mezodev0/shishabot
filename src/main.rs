@@ -9,6 +9,7 @@ extern crate tracing;
 mod commands;
 mod core;
 mod custom_client;
+mod database;
 mod pagination;
 mod util;
 
