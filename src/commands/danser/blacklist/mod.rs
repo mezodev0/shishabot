@@ -47,7 +47,7 @@ pub struct BlacklistServerAdd {
 /// Remove a server from the blacklist
 pub struct BlacklistServerRemove {
     /// ID of the server you want to remove from the blacklist
-    _guild_id: String,
+    guild_id: String,
 }
 
 async fn slash_blacklist(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

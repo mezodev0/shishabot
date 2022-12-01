@@ -1,8 +1,8 @@
-use std::sync::Arc;
-
 use command_macros::SlashCommand;
 use eyre::{Context as _, Result};
 use osu_db::{Mode, Replay};
+use std::fmt::Write;
+use std::sync::Arc;
 use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
@@ -74,6 +74,18 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
             // - Settings of the server are stored
             // - The server's input channels include the current channel
             // - The server's output channel has been configured
+            // - The server is not blacklisted
+
+            let (blacklisted, reason_opt) = ctx.psql()._is_server_blacklisted(guild).await?;
+            if blacklisted {
+                let mut content = String::from("Seems like this server has been blacklisted.");
+                if let Some(reason) = reason_opt {
+                    let _ = write!(content, "\nReason: {reason}");
+                }
+                command.error_callback(&ctx, content, false).await?;
+                return Ok(());
+            }
+
             let check = ctx.guild_settings(guild, |server| {
                 server
                     .input_channels
@@ -165,7 +177,7 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
 
     ctx.replay_queue.push(replay_data).await;
 
-    let content = "Replay has been pushed to the queue!";
+    let content = "Replay has been added to the queue!";
     let builder = MessageBuilder::new().embed(content);
 
     command.update(&ctx, &builder).await?;
