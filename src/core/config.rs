@@ -11,6 +11,7 @@ static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
 #[derive(Debug)]
 pub struct BotConfig {
+    pub database_url: String,
     pub tokens: Tokens,
     pub paths: Paths,
     pub emojis: Emojis,
@@ -92,6 +93,7 @@ impl BotConfig {
 
     pub fn init() -> Result<()> {
         let config = BotConfig {
+            database_url: env_var("DATABASE_URL")?,
             tokens: Tokens {
                 discord: env_var("DISCORD_TOKEN")?,
                 osu_client_id: env_var("OSU_CLIENT_ID")?,

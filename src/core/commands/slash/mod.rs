@@ -41,6 +41,7 @@ impl Commands {
         COMMANDS.get_or_init(|| {
             slash_trie! {
                 slash {
+                    Blacklist => BLACKLIST_SLASH,
                     Help => HELP_SLASH,
                     Invite => INVITE_SLASH,
                     Owner => OWNER_SLASH,

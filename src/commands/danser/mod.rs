@@ -1,10 +1,11 @@
 pub use self::{
-    queue::*, render::*, render_from_bathbot_embed::*, settings::*, setup::*, skin::*
+    blacklist::*, queue::*, render::*, render_score::*, settings::*, setup::*, skin::*,
 };
 
-mod render_from_bathbot_embed;
+mod blacklist;
 mod queue;
 mod render;
+mod render_score;
 mod settings;
 mod setup;
 mod skin;
