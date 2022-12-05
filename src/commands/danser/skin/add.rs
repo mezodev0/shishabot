@@ -15,7 +15,7 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, NOT_OWNER},
         interaction::InteractionCommand,
-        InteractionCommandExt,
+        Authored, InteractionCommandExt,
     },
 };
 
@@ -28,11 +28,11 @@ pub async fn add(
 ) -> Result<()> {
     let config = BotConfig::get();
 
-    let user = match &command.user {
-        Some(user) => user,
-        None => {
+    let user = match command.user() {
+        Ok(user) => user,
+        Err(err) => {
             command.error_callback(&ctx, GENERAL_ISSUE, false).await?;
-            return Ok(());
+            return Err(err.wrap_err("failed to get user from command"));
         }
     };
 
