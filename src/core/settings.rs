@@ -120,7 +120,7 @@ mod servers {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct DanserSettings {
     pub general: General,
     pub graphics: Graphics,
@@ -137,7 +137,7 @@ pub struct DanserSettings {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct General {
     pub osu_songs_dir: String,
     pub osu_skins_dir: String,
@@ -148,7 +148,7 @@ pub struct General {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Graphics {
     pub width: u32,
     pub height: u32,
@@ -167,13 +167,13 @@ pub struct Graphics {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Experimental {
     pub use_persistent_buffers: bool,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Audio {
     pub general_volume: f64,
     pub music_volume: f64,
@@ -190,7 +190,7 @@ pub struct Audio {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct LinuxUnix {
     pub bass_playback_buffer_length: i32,
     pub bass_device_buffer_length: i32,
@@ -199,7 +199,7 @@ pub struct LinuxUnix {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Input {
     pub left_key: String,
     pub right_key: String,
@@ -212,7 +212,7 @@ pub struct Input {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Gameplay {
     pub hit_error_meter: HitErrorMeter,
     pub aim_error_meter: AimErrorMeter,
@@ -242,7 +242,7 @@ pub struct Gameplay {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct HitErrorMeter {
     pub show: bool,
     pub scale: f64,
@@ -262,7 +262,7 @@ pub struct HitErrorMeter {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct AimErrorMeter {
     pub show: bool,
     pub scale: f64,
@@ -283,7 +283,7 @@ pub struct AimErrorMeter {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Score {
     pub show: bool,
     pub scale: f64,
@@ -299,7 +299,7 @@ pub struct Score {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct HpBar {
     pub show: bool,
     pub scale: f64,
@@ -311,7 +311,7 @@ pub struct HpBar {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct ComboCounter {
     pub show: bool,
     pub scale: f64,
@@ -325,7 +325,7 @@ pub struct ComboCounter {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct PpCounter {
     pub show: bool,
     pub scale: f64,
@@ -345,7 +345,7 @@ pub struct PpCounter {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Hsv {
     pub hue: f64,
     pub saturation: f64,
@@ -353,7 +353,7 @@ pub struct Hsv {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct HitCounter {
     pub show: bool,
     pub scale: f64,
@@ -384,7 +384,7 @@ pub struct HitCounter {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct StrainGraph {
     pub show: bool,
     pub opacity: f64,
@@ -397,10 +397,20 @@ pub struct StrainGraph {
     pub height: f64,
     pub bg_color: Hsv,
     pub fg_color: Hsv,
+    pub outline: StrainGraphOutline,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
+pub struct StrainGraphOutline {
+    pub show: bool,
+    pub width: f64,
+    pub inner_darkness: f64,
+    pub inner_opacity: f64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct KeyOverlay {
     pub show: bool,
     pub scale: f64,
@@ -412,7 +422,7 @@ pub struct KeyOverlay {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct ScoreBoard {
     pub show: bool,
     pub scale: f64,
@@ -429,7 +439,7 @@ pub struct ScoreBoard {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Mods {
     pub show: bool,
     pub scale: f64,
@@ -444,7 +454,7 @@ pub struct Mods {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Boundaries {
     pub enabled: bool,
     pub border_thickness: f64,
@@ -456,14 +466,14 @@ pub struct Boundaries {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Underlay {
     pub path: String,
     pub above_hp_bar: bool,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Skin {
     pub current_skin: String,
     pub fallback_skin: String,
@@ -473,7 +483,7 @@ pub struct Skin {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct SkinCursor {
     pub use_skin_cursor: bool,
     pub scale: f64,
@@ -484,7 +494,7 @@ pub struct SkinCursor {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Cursor {
     pub trail_style: u8,
     #[serde(rename = "Style23Speed")]
@@ -517,7 +527,7 @@ pub struct Cursor {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct CursorColors {
     pub enable_rainbow: bool,
     pub rainbow_speed: f64,
@@ -529,7 +539,7 @@ pub struct CursorColors {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Objects {
     pub draw_approach_circles: bool,
     pub draw_combo_numbers: bool,
@@ -542,7 +552,7 @@ pub struct Objects {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Sliders {
     pub force_slider_ball_texture: bool,
     pub draw_end_circles: bool,
@@ -555,7 +565,7 @@ pub struct Sliders {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct SliderDistortions {
     enabled: bool,
     viewport_size: u64,
@@ -565,7 +575,7 @@ pub struct SliderDistortions {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Snaking {
     #[serde(rename = "In")]
     pub in_field: bool,
@@ -576,7 +586,7 @@ pub struct Snaking {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Colors {
     pub mandala_textures_trigger: i32,
     pub mandala_textures_alpha: f64,
@@ -589,7 +599,7 @@ pub struct Colors {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct ObjectSliders {
     pub white_score_points: bool,
     pub score_point_color_offset: i32,
@@ -599,7 +609,7 @@ pub struct ObjectSliders {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Border {
     pub use_hit_circle_color: bool,
     pub color: ObjectColor,
@@ -608,7 +618,7 @@ pub struct Border {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Body {
     pub use_hit_circle_color: bool,
     pub color: ObjectColor,
@@ -619,7 +629,7 @@ pub struct Body {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct ObjectColor {
     pub enable_rainbow: bool,
     pub rainbow_speed: f64,
@@ -631,7 +641,7 @@ pub struct ObjectColor {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Playfield {
     pub draw_objects: bool,
     pub draw_cursors: bool,
@@ -651,14 +661,14 @@ pub struct Playfield {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct SeizureWarning {
     pub enabled: bool,
     pub duration: f64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Background {
     pub load_storyboards: bool,
     pub load_videos: bool,
@@ -670,7 +680,7 @@ pub struct Background {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Dim {
     pub intro: f64,
     pub normal: f64,
@@ -678,7 +688,7 @@ pub struct Dim {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Parallax {
     pub enabled: bool,
     pub amount: f64,
@@ -686,14 +696,14 @@ pub struct Parallax {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Blur {
     pub enabled: bool,
     pub values: BlurValues,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct BlurValues {
     pub intro: f64,
     pub normal: f64,
@@ -701,7 +711,7 @@ pub struct BlurValues {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Triangles {
     pub enabled: bool,
     pub shadowed: bool,
@@ -713,7 +723,7 @@ pub struct Triangles {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Logo {
     pub enabled: bool,
     pub draw_spectrum: bool,
@@ -721,7 +731,7 @@ pub struct Logo {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Bloom {
     pub enabled: bool,
     pub bloom_to_the_beat: bool,
@@ -732,7 +742,7 @@ pub struct Bloom {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct CursorDance {
     pub movers: Vec<Mover>,
     pub spinners: Vec<Spinner>,
@@ -745,7 +755,7 @@ pub struct CursorDance {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Mover {
     pub mover: String,
     pub slider_dance: bool,
@@ -753,7 +763,7 @@ pub struct Mover {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Spinner {
     pub mover: String,
     pub center_offset_x: f64,
@@ -762,7 +772,7 @@ pub struct Spinner {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct MoverSettings {
     pub bezier: Vec<Bezier>,
     pub flower: Vec<Flower>,
@@ -775,14 +785,14 @@ pub struct MoverSettings {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Bezier {
     pub aggressiveness: f64,
     pub slider_aggressiveness: f64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Flower {
     pub angle_offset: f64,
     pub distance_mult: f64,
@@ -793,14 +803,14 @@ pub struct Flower {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct HalfCircle {
     pub radius_multiplier: f64,
     pub stream_trigger: i64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Spline {
     pub rotational_force: bool,
     pub stream_half_circle: bool,
@@ -809,7 +819,7 @@ pub struct Spline {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Momentum {
     pub skip_stack_angles: bool,
     pub stream_restrict: bool,
@@ -824,13 +834,13 @@ pub struct Momentum {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct ExGon {
     pub delay: u32,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Linear {
     pub wait_for_preempt: bool,
     pub reaction_time: f64,
@@ -838,7 +848,7 @@ pub struct Linear {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Pippi {
     pub rotation_speed: f64,
     pub radius_multiplier: f64,
@@ -846,7 +856,7 @@ pub struct Pippi {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Knockout {
     pub mode: u8,
     pub grace_end_time: i32,
@@ -866,7 +876,7 @@ pub struct Knockout {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Recording {
     pub frame_width: i32,
     pub frame_height: i32,
@@ -911,7 +921,7 @@ pub struct Recording {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Libx264 {
     pub rate_control: String,
     pub bitrate: String,
@@ -923,7 +933,7 @@ pub struct Libx264 {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Libx265 {
     pub rate_control: String,
     pub bitrate: String,
@@ -934,7 +944,7 @@ pub struct Libx265 {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct H264Nvenc {
     pub rate_control: String,
     pub bitrate: String,
@@ -946,7 +956,7 @@ pub struct H264Nvenc {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct HevcNvenc {
     pub rate_control: String,
     pub bitrate: String,
@@ -957,7 +967,7 @@ pub struct HevcNvenc {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct H264Qsv {
     pub rate_control: String,
     pub bitrate: String,
@@ -968,7 +978,7 @@ pub struct H264Qsv {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct HevcQsv {
     pub rate_control: String,
     pub bitrate: String,
@@ -978,20 +988,20 @@ pub struct HevcQsv {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Custom {
     pub custom_options: String,
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Aac {
     pub bitrate: String,
     pub additional_options: String,
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Libmp3lame {
     pub rate_control: String,
     pub target_bitrate: String,
@@ -999,7 +1009,7 @@ pub struct Libmp3lame {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Libopus {
     pub rate_control: String,
     pub target_bitrate: String,
@@ -1007,23 +1017,25 @@ pub struct Libopus {
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct Flac {
     pub compression_level: i64,
     pub additional_options: String,
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct CustomAudio {
     pub custom_options: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct MotionBlur {
     pub enabled: bool,
-    pub oversample_multiplier: i32,
-    pub blend_frames: i32,
+    pub oversample_multiplier: u32,
+    pub blend_frames: u32,
+    #[serde(rename = "BlendFunctionID")]
+    pub blend_function_id: u32,
     pub gauss_weights_mult: f64,
 }

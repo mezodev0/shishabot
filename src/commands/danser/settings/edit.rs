@@ -218,6 +218,7 @@ fn modify_settings(
         hit_counter,
         sliderbreaks,
         strain_graph,
+        strain_graph_outline,
         key_overlay,
     } = args;
 
@@ -368,6 +369,7 @@ fn modify_settings(
         hit_counter ~ settings.gameplay.hit_counter.show;
         sliderbreaks ~ settings.gameplay.hit_counter.show_sliderbreaks;
         strain_graph ~ settings.gameplay.strain_graph.show;
+        strain_graph_outline ~ settings.gameplay.strain_graph.outline.show;
         cursor_ripples ~ settings.cursor.cursor_ripples;
         leaderboard ~ settings.gameplay.score_board.show;
         key_overlay ~ settings.gameplay.key_overlay.show;
