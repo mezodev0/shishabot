@@ -135,6 +135,7 @@ async fn render_from_msg(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     let replay_data = ReplayData {
         input_channel,
         output_channel,
+        pitch: None,
         path,
         replay,
         user,

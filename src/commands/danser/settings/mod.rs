@@ -135,7 +135,9 @@ pub struct SettingsEdit {
     sliderbreaks: Option<Visibility>,
     /// Whether the strain graph should be displayed
     strain_graph: Option<Visibility>,
-    /// Wether the key overlay should be displayed
+    /// Whether the outline of the strain graph should be displayed
+    strain_graph_outline: Option<Visibility>,
+    /// whether the key overlay should be displayed
     key_overlay: Option<Visibility>,
 }
 
@@ -165,6 +167,7 @@ impl TryFrom<SettingsEditAutocomplete> for SettingsEdit {
             hit_counter,
             sliderbreaks,
             strain_graph,
+            strain_graph_outline,
             key_overlay,
         } = edit;
 
@@ -195,6 +198,7 @@ impl TryFrom<SettingsEditAutocomplete> for SettingsEdit {
             hit_counter,
             sliderbreaks,
             strain_graph,
+            strain_graph_outline,
             key_overlay,
         };
 
@@ -225,6 +229,7 @@ pub struct SettingsEditAutocomplete {
     hit_counter: Option<Visibility>,
     sliderbreaks: Option<Visibility>,
     strain_graph: Option<Visibility>,
+    strain_graph_outline: Option<Visibility>,
     key_overlay: Option<Visibility>,
 }
 
@@ -345,8 +350,10 @@ fn create_settings_embed(user: &User, settings: &DanserSettings) -> Embed {
             inline: true,
             name: "Strain Graph".to_owned(),
             value: format!(
-                "`show strain graph`: {}",
+                "`show strain graph`: {}\n\
+                `show strain graph outline`: {}",
                 on_off(settings.gameplay.strain_graph.show),
+                on_off(settings.gameplay.strain_graph.outline.show),
             ),
         },
         EmbedField {
