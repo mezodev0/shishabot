@@ -549,17 +549,19 @@ pub struct Sliders {
     pub draw_slider_follow_circle: bool,
     pub draw_score_points: bool,
     pub slider_merge: bool,
-    pub slider_distortions: bool,
     pub border_width: i32,
-    pub quality: Quality,
+    pub distortions: SliderDistortions,
     pub snaking: Snaking,
 }
 
-#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct Quality {
-    pub circle_level_of_detail: i32,
-    pub path_level_of_detail: i32,
+pub struct SliderDistortions {
+    enabled: bool,
+    viewport_size: u64,
+    use_custom_resolution: bool,
+    custom_resolution_x: u64,
+    custom_resolution_y: u64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1023,15 +1025,5 @@ pub struct MotionBlur {
     pub enabled: bool,
     pub oversample_multiplier: i32,
     pub blend_frames: i32,
-    pub blend_weights: BlendWeights,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct BlendWeights {
-    pub use_manual_weights: bool,
-    pub manual_weights: String,
-    #[serde(rename = "AutoWeightsID")]
-    pub auto_weights_id: u8,
     pub gauss_weights_mult: f64,
 }
