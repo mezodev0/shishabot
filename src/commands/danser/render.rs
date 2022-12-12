@@ -28,6 +28,9 @@ pub struct Render {
     #[command(min_value = 0, max_value = 65_535)]
     /// Specify an end timestamp in minutes and seconds
     end: Option<String>,
+    #[command(min_value = 0, max_value = 5)]
+    /// Specify the music pitch (Nightcore is 1.5)
+    pitch: Option<u8>,
 }
 
 pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -35,6 +38,7 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
         attachment,
         start,
         end,
+        pitch,
     } = Render::from_interaction(command.input_data())?;
 
     if !matches!(attachment.filename.split('.').last(), Some("osr")) {
@@ -166,6 +170,7 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
     let replay_data = ReplayData {
         input_channel: command.channel_id,
         output_channel,
+        pitch,
         path: replay_file,
         replay: replay.into(),
         time_points: TimePoints {

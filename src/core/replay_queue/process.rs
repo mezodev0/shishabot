@@ -41,6 +41,7 @@ impl ReplayQueue {
             let ReplayData {
                 input_channel,
                 output_channel,
+                pitch,
                 path,
                 replay,
                 time_points,
@@ -159,6 +160,10 @@ impl ReplayQueue {
 
             if time_points.end != 0 {
                 command.args(["-end", &time_points.end.to_string()]);
+            }
+
+            if let Some(pitch) = pitch {
+                command.args(["-pitch", &pitch.to_string()]);
             }
 
             info!("Started replay processing");

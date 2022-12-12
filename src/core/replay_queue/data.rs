@@ -12,6 +12,7 @@ use crate::util::CowUtils;
 pub struct ReplayData {
     pub input_channel: Id<ChannelMarker>,
     pub output_channel: Id<ChannelMarker>,
+    pub pitch: Option<u8>,
     pub path: PathBuf,
     pub replay: ReplaySlim,
     pub time_points: TimePoints,
