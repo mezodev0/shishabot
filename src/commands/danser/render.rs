@@ -30,7 +30,7 @@ pub struct Render {
     end: Option<String>,
     #[command(min_value = 0, max_value = 5)]
     /// Specify the music pitch (Nightcore is 1.5)
-    pitch: Option<u8>,
+    pitch: Option<f64>,
 }
 
 pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

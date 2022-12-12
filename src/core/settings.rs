@@ -564,7 +564,7 @@ pub struct Sliders {
     pub snaking: Snaking,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct SliderDistortions {
     enabled: bool,
