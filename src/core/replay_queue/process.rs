@@ -418,12 +418,12 @@ async fn download_mapset(ctx: &Context, mapset_id: u32) -> Result<()> {
 }
 
 async fn request_mapset(ctx: &Context, mapset_id: u32) -> Result<Bytes> {
-    let kitsu = match ctx.client().download_kitsu_mapset(mapset_id).await {
+    let chimu = match ctx.client().download_chimu_mapset(mapset_id).await {
         Ok(bytes) => return Ok(bytes),
         Err(err) => err,
     };
-
-    let chimu = match ctx.client().download_chimu_mapset(mapset_id).await {
+    
+    let kitsu = match ctx.client().download_kitsu_mapset(mapset_id).await {
         Ok(bytes) => return Ok(bytes),
         Err(err) => err,
     };
