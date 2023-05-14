@@ -4,6 +4,8 @@
 
 A discord bot that converts your <a href="https://osu.ppy.sh">osu!</a> replays into shareable video links
 
+Add it to your server using this <a href="https://discord.com/api/oauth2/authorize?client_id=867681950818893835&permissions=117824&scope=applications.commands%20bot">invite link</a>!
+
 # Setup
 
 In order to set this bot up, you need to have [Rust](https://www.rust-lang.org/) installed
